@@ -84,6 +84,7 @@ struct BrowserTab: Identifiable, Codable, Equatable {
     var blockedCount: Int
     var hasVideoOnPage: Bool
     var detectedVideoURLString: String?
+    var braveWasmFallbackQuery: String?
     var lastAccessedAt: Date
 
     init(
@@ -101,6 +102,7 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         blockedCount: Int = 0,
         hasVideoOnPage: Bool = false,
         detectedVideoURLString: String? = nil,
+        braveWasmFallbackQuery: String? = nil,
         lastAccessedAt: Date = Date()
     ) {
         self.id = id
@@ -117,6 +119,7 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         self.blockedCount = blockedCount
         self.hasVideoOnPage = hasVideoOnPage
         self.detectedVideoURLString = detectedVideoURLString
+        self.braveWasmFallbackQuery = braveWasmFallbackQuery
         self.lastAccessedAt = lastAccessedAt
     }
 
@@ -154,6 +157,7 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         blockedCount = 0
         hasVideoOnPage = false
         detectedVideoURLString = nil
+        braveWasmFallbackQuery = nil
     }
 
     func encode(to encoder: Encoder) throws {

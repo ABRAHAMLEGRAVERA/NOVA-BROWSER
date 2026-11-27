@@ -248,6 +248,7 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].failedURLString = nil
         tabs[idx].hasVideoOnPage = false
         tabs[idx].detectedVideoURLString = nil
+        tabs[idx].braveWasmFallbackQuery = nil
         addressBarText = ""
         persistTabsSnapshot()
     }
@@ -312,8 +313,8 @@ final class BrowserViewModel: ObservableObject {
         showToast("Descarga iniciada")
     }
 
-    func handleStartedWKDownload(_ download: WKDownload, url: URL?) {
-        downloadManager.attachWKDownload(download, initialURL: url)
+    func handleStartedWKDownload(_ download: WKDownload, url: URL?, webView: WKWebView? = nil) {
+        downloadManager.attachWKDownload(download, initialURL: url, webView: webView)
         showToast("Descargando archivo...")
     }
 
@@ -321,6 +322,44 @@ final class BrowserViewModel: ObservableObject {
         guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         tabs[idx].hasVideoOnPage = hasVideo
         tabs[idx].detectedVideoURLString = directURLString
+    }
+
+    func handleBraveWasmBlocked(tabID: UUID, query: String?) {
+        guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        let clean = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        tabs[idx].braveWasmFallbackQuery = clean
+    }
+
+    func dismissBraveWasmBanner() {
+        tabs[activeTabIndex].braveWasmFallbackQuery = nil
+    }
+
+    func fallbackBraveToGoogle() {
+        let query = tabs[activeTabIndex].braveWasmFallbackQuery ?? ""
+        tabs[activeTabIndex].braveWasmFallbackQuery = nil
+        if query.isEmpty, let url = URL(string: "https://www.google.com") {
+            navigate(to: url, in: activeTabID)
+        } else if let url = SearchEngine.google.searchURL(for: query) {
+            navigate(to: url, in: activeTabID)
+        }
+    }
+
+    func fallbackBraveToDuckDuckGoLite() {
+        let query = tabs[activeTabIndex].braveWasmFallbackQuery ?? ""
+        tabs[activeTabIndex].braveWasmFallbackQuery = nil
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let target = encoded.isEmpty
+            ? "https://lite.duckduckgo.com/lite/"
+            : "https://lite.duckduckgo.com/lite/?q=\(encoded)"
+        if let url = URL(string: target) {
+            navigate(to: url, in: activeTabID)
+        }
+    }
+
+    func retryBraveInNormalTab() {
+        let url = activeTab.currentURL ?? URL(string: "https://search.brave.com")
+        tabs[activeTabIndex].braveWasmFallbackQuery = nil
+        createNewTab(url: url, isIncognito: false, select: true)
     }
 
     // MARK: - Tabs
@@ -497,6 +536,7 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].failedURLString = nil
         tabs[idx].hasVideoOnPage = false
         tabs[idx].detectedVideoURLString = nil
+        tabs[idx].braveWasmFallbackQuery = nil
         tabs[idx].isLoading = true
     }
 

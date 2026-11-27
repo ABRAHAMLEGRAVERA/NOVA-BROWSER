@@ -504,5 +504,11 @@
       "url-filter": "^https?://(www\\.|m\\.)?youtube\\.com/(s/player/|youtubei/|watch|embed/|shorts/)"
     },
     "action": { "type": "ignore-previous-rules" }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([a-z0-9-]+\\.)*brave\\.com/"
+    },
+    "action": { "type": "ignore-previous-rules" }
   }
 ]

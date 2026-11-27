@@ -99,6 +99,8 @@ final class WebViewPool {
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = tab.isIncognito ? incognitoDataStore : .default()
+        // Present standard Safari identifier so search engines & sites do not treat NOVA as an unbranded bot WebView
+        config.applicationNameForUserAgent = "Version/15.6 Safari/605.1.15"
         config.allowsInlineMediaPlayback = true
         config.allowsPictureInPictureMediaPlayback = true
         config.allowsAirPlayForMediaPlayback = true
@@ -118,6 +120,7 @@ final class WebViewPool {
         let userContent = WKUserContentController()
         userContent.add(weakHandler, name: "novaTracker")
         userContent.add(weakHandler, name: "novaVideo")
+        userContent.add(weakHandler, name: "novaPageEvent")
         userContent.addUserScript(Self.makeVideoAndFullscreenEarlyScript(videoPerformanceMode: videoPerformanceMode))
         userContent.addUserScript(Self.makeShieldAndVideoEndScript(
             forceDarkWebPages: forceDarkWebPages,
@@ -136,7 +139,7 @@ final class WebViewPool {
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsLinkPreview = true
         webView.scrollView.contentInsetAdjustmentBehavior = .automatic
-        // Opaque rendering avoids expensive full-screen alpha blending on iPad Air 2 A8X GPU
+        // Opaque rendering eliminates full-screen alpha-blending overhead on iPad Air 2 A8X GPU
         webView.isOpaque = true
         webView.backgroundColor = .systemBackground
         webView.scrollView.backgroundColor = .systemBackground
@@ -158,7 +161,6 @@ final class WebViewPool {
         let js = Self.forceDarkModeToggleJS(enabled: enabled)
         for (_, runtime) in runtimes {
             let controller = runtime.webView.configuration.userContentController
-            // Update user scripts for future page loads in live webviews
             let currentScripts = controller.userScripts
             let kept = currentScripts.filter { !$0.source.contains("window.__novaDarkScript") }
             controller.removeAllUserScripts()
@@ -239,7 +241,6 @@ final class WebViewPool {
             if (window.__novaVideoEarly) return;
             window.__novaVideoEarly = true;
 
-            // Ensure fullscreen detection succeeds on players that check standard or webkit properties
             try {
                 if (typeof Document !== 'undefined') {
                     if (!document.fullscreenEnabled) {
@@ -280,7 +281,6 @@ final class WebViewPool {
                 return best;
             }
 
-            // Prefer native iPad AVPlayerViewController (webkitEnterFullscreen) for video elements and video containers
             var origReqFS = Element.prototype.requestFullscreen || Element.prototype.webkitRequestFullscreen;
             function novaEnterFullscreen() {
                 var target = this;
@@ -401,6 +401,24 @@ final class WebViewPool {
                 } catch (e) {}
             }
 
+            function checkBraveWasmBlock() {
+                try {
+                    var h = (location.hostname || '').toLowerCase();
+                    if (h !== 'search.brave.com') return;
+                    var text = (document.body && document.body.innerText) ? document.body.innerText : '';
+                    if (text.indexOf('WebAssembly 2.0') !== -1) {
+                        var params = new URLSearchParams(location.search || '');
+                        var q = params.get('q') || '';
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.novaPageEvent) {
+                            window.webkit.messageHandlers.novaPageEvent.postMessage({
+                                type: 'braveWasmBlocked',
+                                query: q
+                            });
+                        }
+                    }
+                } catch (e) {}
+            }
+
             if (\(perfFlag)) {
                 var style = document.createElement('style');
                 style.id = 'nova-perf-css';
@@ -409,18 +427,205 @@ final class WebViewPool {
                     'html.__nova-resizing *, html.__nova-resizing *::before, html.__nova-resizing *::after {',
                     '  transition: none !important; animation: none !important;',
                     '}',
-                    '#cinematics, #cinematics-container, ytd-watch-flexy #cinematics, #ambient-container, .ytp-ce-element {',
+                    '#cinematics, #cinematics-container, ytd-watch-flexy #cinematics, #ambient-container, .ytp-ce-element, ytd-moving-thumbnail-renderer {',
                     '  display: none !important;',
                     '}',
                     'ytd-app, ytm-app, #masthead-container, tp-yt-app-drawer, .mobile-topbar-header {',
                     '  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;',
                     '}',
-                    'ytd-rich-item-renderer, ytm-rich-item-renderer, ytm-video-with-context-renderer {',
+                    'ytd-rich-item-renderer, ytm-rich-item-renderer, ytm-video-with-context-renderer, ytd-compact-video-renderer {',
                     '  transition: none !important; box-shadow: none !important;',
                     '}',
                     'video { transform: translateZ(0); }'
                 ].join('\\n');
                 (document.head || document.documentElement).appendChild(style);
+            }
+
+            var host = (location.hostname || '').toLowerCase();
+            var isYouTube = (host.indexOf('youtube.com') !== -1) && (window.top === window.self);
+
+            function setupYouTubeAppUI() {
+                if (!isYouTube) return;
+
+                if (!document.getElementById('nova-yt-app-css')) {
+                    var ytStyle = document.createElement('style');
+                    ytStyle.id = 'nova-yt-app-css';
+                    ytStyle.textContent = [
+                        // Keep top bar clean: only 3-line menu + YouTube logo + search bar
+                        'ytd-masthead #end, ytd-masthead #voice-search-button, ytd-masthead ytd-topbar-menu-button-renderer, ytd-masthead ytd-notification-topbar-button-renderer, ytd-masthead #avatar-btn {',
+                        '  display: none !important;',
+                        '}',
+                        'ytd-masthead #center { max-width: 580px !important; margin: 0 auto !important; }',
+                        'ytm-mobile-topbar-renderer .mobile-topbar-header-endpoint + *, ytm-mobile-topbar-renderer button[aria-label*="Cuenta"], ytm-mobile-topbar-renderer button[aria-label*="Account"], ytm-mobile-topbar-renderer ytm-topbar-menu-button-renderer {',
+                        '  display: none !important;',
+                        '}',
+                        // Hide fixed mini-sidebar on desktop YouTube so iPad 9.7" gains horizontal room (drawer via 3-line menu still works)
+                        'html[data-nova-yt-bar="1"] ytd-mini-guide-renderer { display: none !important; }',
+                        'html[data-nova-yt-bar="1"] ytd-page-manager { margin-left: 0 !important; padding-bottom: 54px !important; }',
+                        'html[data-nova-yt-bar="1"] ytm-app { padding-bottom: 54px !important; }',
+                        // Hide YouTube mobile native pivot bar if present so we have one clean unified bar
+                        'html[data-nova-yt-bar="1"] ytm-pivot-bar-renderer { display: none !important; }',
+                        // SHORTS MODE: remove top search/logo/header completely and expand Short above compact bottom bar
+                        'html[data-nova-yt-mode="shorts"], html[data-nova-yt-mode="shorts"] ytd-app { --ytd-masthead-height: 0px !important; --ytd-toolbar-height: 0px !important; }',
+                        'html[data-nova-yt-mode="shorts"] #masthead-container, html[data-nova-yt-mode="shorts"] ytd-masthead, html[data-nova-yt-mode="shorts"] ytm-mobile-topbar-renderer, html[data-nova-yt-mode="shorts"] #header {',
+                        '  display: none !important; height: 0 !important; min-height: 0 !important;',
+                        '}',
+                        'html[data-nova-yt-mode="shorts"] ytd-page-manager, html[data-nova-yt-mode="shorts"] #page-manager {',
+                        '  margin-top: 0 !important; padding-top: 0 !important; padding-bottom: 48px !important;',
+                        '}',
+                        'html[data-nova-yt-mode="shorts"] ytd-shorts, html[data-nova-yt-mode="shorts"] #shorts-container {',
+                        '  height: calc(100vh - 48px) !important; max-height: calc(100vh - 48px) !important; padding-top: 0 !important;',
+                        '}',
+                        // Bottom app-like navigation bar (Inicio, Shorts, Suscripciones, Tú)
+                        '#nova-yt-bottom-bar {',
+                        '  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483000;',
+                        '  height: calc(48px + env(safe-area-inset-bottom));',
+                        '  padding-bottom: env(safe-area-inset-bottom);',
+                        '  display: flex; align-items: center; justify-content: space-around;',
+                        '  background: rgba(15, 15, 18, 0.96); color: #f1f5f9;',
+                        '  border-top: 1px solid rgba(255, 255, 255, 0.12);',
+                        '  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;',
+                        '  user-select: none; -webkit-user-select: none;',
+                        '}',
+                        'html:not([dark]):not([data-nova-dark="1"]) #nova-yt-bottom-bar {',
+                        '  background: rgba(255, 255, 255, 0.97); color: #0f172a;',
+                        '  border-top: 1px solid rgba(15, 23, 42, 0.12);',
+                        '}',
+                        '#nova-yt-bottom-bar.nova-hidden { display: none !important; }',
+                        '.nova-yt-tab {',
+                        '  flex: 1; height: 48px; border: none; background: transparent; color: inherit;',
+                        '  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;',
+                        '  opacity: 0.68; cursor: pointer; padding: 0 6px; -webkit-tap-highlight-color: transparent;',
+                        '}',
+                        '.nova-yt-tab.active { opacity: 1; color: #ff2d2d; font-weight: 600; }',
+                        'html:not([dark]):not([data-nova-dark="1"]) .nova-yt-tab.active { color: #dc2626; }',
+                        '.nova-yt-tab svg { width: 20px; height: 20px; display: block; fill: currentColor; }',
+                        '.nova-yt-tab span { font-size: 10px; line-height: 12px; letter-spacing: 0.01em; }'
+                    ].join('\\n');
+                    (document.head || document.documentElement).appendChild(ytStyle);
+                }
+
+                function ensureBottomBar() {
+                    if (document.getElementById('nova-yt-bottom-bar')) return;
+                    if (!document.body) return;
+
+                    var bar = document.createElement('nav');
+                    bar.id = 'nova-yt-bottom-bar';
+                    bar.setAttribute('aria-label', 'Navegación de YouTube');
+
+                    var tabs = [
+                        {
+                            key: 'home',
+                            label: 'Inicio',
+                            href: '/',
+                            svg: '<svg viewBox="0 0 24 24"><path d="M12 3.2 3 10.4V21h6v-6h6v6h6V10.4L12 3.2z"/></svg>'
+                        },
+                        {
+                            key: 'shorts',
+                            label: 'Shorts',
+                            href: '/shorts',
+                            svg: '<svg viewBox="0 0 24 24"><path d="M16.7 5.2c1.2.7 1.6 2.2.9 3.4l-1.1 1.9 1.4.8c1.2.7 1.6 2.2.9 3.4l-2.6 4.4c-.7 1.2-2.2 1.6-3.4.9l-5.5-3.2c-1.2-.7-1.6-2.2-.9-3.4l1.1-1.9-1.4-.8c-1.2-.7-1.6-2.2-.9-3.4l2.6-4.4c.7-1.2 2.2-1.6 3.4-.9l5.5 3.2zM10 9.5v5l4.5-2.5L10 9.5z"/></svg>'
+                        },
+                        {
+                            key: 'subs',
+                            label: 'Suscripciones',
+                            href: '/feed/subscriptions',
+                            svg: '<svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm2-4h12v2H6V2zm14 8H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-8c0-1.1-.9-2-2-2zm-10 9v-6l5.5 3-5.5 3z"/></svg>'
+                        },
+                        {
+                            key: 'you',
+                            label: 'Tú',
+                            href: '/feed/you',
+                            svg: '<svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V21h19.2v-1.8c0-3.2-6.4-4.8-9.6-4.8z"/></svg>'
+                        }
+                    ];
+
+                    function navigateYouTubeSPA(targetHref) {
+                        var selectors = [];
+                        if (targetHref === '/') {
+                            selectors = ['a#endpoint[href="/"]', 'ytd-mini-guide-entry-renderer a[href="/"]', 'a[title="Inicio"]', 'a[title="Home"]'];
+                        } else if (targetHref === '/shorts') {
+                            selectors = ['a#endpoint[href="/shorts"]', 'ytd-mini-guide-entry-renderer a[title="Shorts"]', 'a[title="Shorts"]'];
+                        } else if (targetHref === '/feed/subscriptions') {
+                            selectors = ['a#endpoint[href="/feed/subscriptions"]', 'a[title="Suscripciones"]', 'a[title="Subscriptions"]'];
+                        } else {
+                            selectors = ['a#endpoint[href="/feed/you"]', 'a#endpoint[href="/feed/library"]', 'a[title="Tú"]', 'a[title="You"]'];
+                        }
+                        for (var i = 0; i < selectors.length; i++) {
+                            var link = document.querySelector(selectors[i]);
+                            if (link) {
+                                link.click();
+                                setTimeout(syncYouTubeMode, 120);
+                                return;
+                            }
+                        }
+                        location.href = targetHref;
+                    }
+
+                    for (var i = 0; i < tabs.length; i++) {
+                        (function(t) {
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'nova-yt-tab';
+                            btn.dataset.ytTab = t.key;
+                            btn.innerHTML = t.svg + '<span>' + t.label + '</span>';
+                            btn.addEventListener('click', function() {
+                                navigateYouTubeSPA(t.href);
+                            });
+                            bar.appendChild(btn);
+                        })(tabs[i]);
+                    }
+                    document.body.appendChild(bar);
+                }
+
+                function syncYouTubeMode() {
+                    ensureBottomBar();
+                    var root = document.documentElement;
+                    var path = (location.pathname || '/').toLowerCase();
+                    var isShorts = path.indexOf('/shorts') === 0;
+                    var isWatch = path.indexOf('/watch') === 0;
+
+                    var mode = isShorts ? 'shorts' : (isWatch ? 'watch' : 'browse');
+                    root.setAttribute('data-nova-yt-mode', mode);
+
+                    var bar = document.getElementById('nova-yt-bottom-bar');
+                    if (isWatch) {
+                        root.removeAttribute('data-nova-yt-bar');
+                        if (bar) bar.classList.add('nova-hidden');
+                    } else {
+                        root.setAttribute('data-nova-yt-bar', '1');
+                        if (bar) bar.classList.remove('nova-hidden');
+                    }
+
+                    if (bar) {
+                        var activeKey = 'home';
+                        if (isShorts) activeKey = 'shorts';
+                        else if (path.indexOf('/feed/subscriptions') === 0) activeKey = 'subs';
+                        else if (path.indexOf('/feed/you') === 0 || path.indexOf('/feed/library') === 0 || path.indexOf('/feed/history') === 0 || path.indexOf('/playlist') === 0) activeKey = 'you';
+
+                        var btns = bar.querySelectorAll('.nova-yt-tab');
+                        for (var i = 0; i < btns.length; i++) {
+                            if (btns[i].dataset.ytTab === activeKey) {
+                                btns[i].classList.add('active');
+                            } else {
+                                btns[i].classList.remove('active');
+                            }
+                        }
+                    }
+                }
+
+                syncYouTubeMode();
+                window.addEventListener('yt-navigate-finish', syncYouTubeMode);
+                window.addEventListener('popstate', syncYouTubeMode);
+
+                var lastHref = location.href;
+                setInterval(function() {
+                    if (location.href !== lastHref) {
+                        lastHref = location.href;
+                        syncYouTubeMode();
+                        setTimeout(reportVideoState, 350);
+                    }
+                }, 450);
             }
 
             function sweepAdContainers() {
@@ -450,8 +655,13 @@ final class WebViewPool {
                 if (count > 0) postTracker(count);
             }
 
-            var host = (location.hostname || '').toLowerCase();
-            if (host.indexOf('youtube.com') !== -1) {
+            if (isYouTube) {
+                if (document.body) {
+                    setupYouTubeAppUI();
+                } else {
+                    document.addEventListener('DOMContentLoaded', setupYouTubeAppUI);
+                }
+
                 var ytScheduled = false;
                 function checkYouTubeAds() {
                     ytScheduled = false;
@@ -479,9 +689,8 @@ final class WebViewPool {
                 }
             }
 
-            // Improve native video fullscreen button compatibility on YouTube mobile/desktop
             document.addEventListener('click', function(e) {
-            var btn = e.target && e.target.closest ? e.target.closest('.ytp-fullscreen-button, .fullscreen-icon, .ytm-fullscreen-button, button[aria-label*="Pantalla completa"], button[aria-label*="pantalla completa"], button[aria-label*="Full screen"], button[aria-label*="Fullscreen"]') : null;
+                var btn = e.target && e.target.closest ? e.target.closest('.ytp-fullscreen-button, .fullscreen-icon, .ytm-fullscreen-button, button[aria-label*="Pantalla completa"], button[aria-label*="pantalla completa"], button[aria-label*="Full screen"], button[aria-label*="Fullscreen"]') : null;
                 if (!btn) return;
                 setTimeout(function() {
                     var inFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -496,10 +705,12 @@ final class WebViewPool {
 
             sweepAdContainers();
             reportVideoState();
+            checkBraveWasmBlock();
             setTimeout(function() {
                 sweepAdContainers();
                 reportVideoState();
-            }, 1200);
+                checkBraveWasmBlock();
+            }, 900);
             document.addEventListener('loadedmetadata', reportVideoState, true);
             document.addEventListener('playing', reportVideoState, true);
         })();

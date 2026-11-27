@@ -78,6 +78,85 @@ struct MainBrowserView: View {
                         )
                     }
 
+                    if viewModel.activeTab.braveWasmFallbackQuery != nil && !viewModel.activeTab.isStartPage {
+                        VStack {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "exclamationmark.shield.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.orange)
+
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Brave activó verificación WebAssembly 2.0")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(palette.primaryText)
+
+                                    Text("iPadOS 15.8.9 solo admite WebAssembly 1.0 (Apple añadió 2.0 en iOS 16.4), por lo que cuando Brave pide captcha anti-bot queda bloqueado.")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(palette.secondaryText)
+
+                                    HStack(spacing: 8) {
+                                        Button("Buscar en Google") {
+                                            viewModel.fallbackBraveToGoogle()
+                                        }
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(palette.accent)
+                                        .foregroundColor(.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                                        Button("DuckDuckGo Lite") {
+                                            viewModel.fallbackBraveToDuckDuckGoLite()
+                                        }
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(palette.secondaryText.opacity(0.16))
+                                        .foregroundColor(palette.primaryText)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                                        if viewModel.activeTab.isIncognito {
+                                            Button("Pestaña normal") {
+                                                viewModel.retryBraveInNormalTab()
+                                            }
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(palette.secondaryText.opacity(0.16))
+                                            .foregroundColor(palette.primaryText)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                Spacer(minLength: 4)
+
+                                Button {
+                                    viewModel.dismissBraveWasmBanner()
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(palette.secondaryText)
+                                        .padding(6)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(14)
+                            .background(palette.chromeBackground)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(palette.border, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.22), radius: 10, x: 0, y: 4)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 10)
+
+                            Spacer()
+                        }
+                    }
+
                     if isAddressFocused {
                         Color.black.opacity(0.18)
                             .ignoresSafeArea()

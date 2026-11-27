@@ -88,4 +88,28 @@ final class NOVABrowserTests: XCTestCase {
         XCTAssertEqual(loaded?.tabs.first?.id, normalTab.id)
         XCTAssertEqual(loaded?.activeTabID, normalTab.id)
     }
+
+    func testDownloadItemSegmentsPersistAcrossPause() throws {
+        let segs = [
+            DownloadSegment(index: 0, startByte: 0, endByte: 999, downloadedBytes: 500, isCompleted: false),
+            DownloadSegment(index: 1, startByte: 1000, endByte: 1999, downloadedBytes: 1000, isCompleted: true)
+        ]
+        let item = DownloadItem(
+            filename: "video.mp4",
+            sourceURLString: "https://example.com/video.mp4",
+            totalBytes: 2000,
+            receivedBytes: 1500,
+            progress: 0.75,
+            state: .paused,
+            supportsResume: true,
+            activeConnections: 2,
+            segments: segs
+        )
+        let data = try JSONEncoder().encode(item)
+        let decoded = try JSONDecoder().decode(DownloadItem.self, from: data)
+        XCTAssertEqual(decoded.state, .paused)
+        XCTAssertEqual(decoded.segments?.count, 2)
+        XCTAssertTrue(decoded.canResume)
+        XCTAssertTrue(decoded.isVideo)
+    }
 }

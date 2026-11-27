@@ -133,6 +133,17 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
             Task { @MainActor in
                 self.viewModel?.handleVideoDetection(tabID: currentTabID, hasVideo: hasVideo, directURLString: directURL)
             }
+            return
+        }
+
+        if message.name == "novaPageEvent",
+           let body = message.body as? [String: Any],
+           let type = body["type"] as? String,
+           type == "braveWasmBlocked" {
+            let query = body["query"] as? String
+            Task { @MainActor in
+                self.viewModel?.handleBraveWasmBlocked(tabID: currentTabID, query: query)
+            }
         }
     }
 
@@ -206,14 +217,14 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
         let url = navigationAction.request.url
         Task { @MainActor in
-            self.viewModel?.handleStartedWKDownload(download, url: url)
+            self.viewModel?.handleStartedWKDownload(download, url: url, webView: webView)
         }
     }
 
     func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
         let url = navigationResponse.response.url
         Task { @MainActor in
-            self.viewModel?.handleStartedWKDownload(download, url: url)
+            self.viewModel?.handleStartedWKDownload(download, url: url, webView: webView)
         }
     }
 
