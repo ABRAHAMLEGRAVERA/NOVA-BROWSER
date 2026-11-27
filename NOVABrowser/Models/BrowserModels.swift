@@ -1,0 +1,259 @@
+import Foundation
+
+enum SearchEngine: String, CaseIterable, Codable, Identifiable {
+    case google = "google"
+    case duckDuckGo = "duckduckgo"
+    case bing = "bing"
+    case brave = "brave"
+    case startpage = "startpage"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .google: return "Google"
+        case .duckDuckGo: return "DuckDuckGo"
+        case .bing: return "Bing"
+        case .brave: return "Brave Search"
+        case .startpage: return "Startpage"
+        }
+    }
+
+    func searchURL(for query: String) -> URL? {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return nil
+        }
+        switch self {
+        case .google:
+            return URL(string: "https://www.google.com/search?q=\(encoded)")
+        case .duckDuckGo:
+            return URL(string: "https://duckduckgo.com/?q=\(encoded)")
+        case .bing:
+            return URL(string: "https://www.bing.com/search?q=\(encoded)")
+        case .brave:
+            return URL(string: "https://search.brave.com/search?q=\(encoded)")
+        case .startpage:
+            return URL(string: "https://www.startpage.com/do/search?q=\(encoded)")
+        }
+    }
+}
+
+enum AppearanceMode: String, CaseIterable, Codable, Identifiable {
+    case automatic = "automatic"
+    case light = "light"
+    case dark = "dark"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .automatic: return "Automático"
+        case .light: return "Claro"
+        case .dark: return "Oscuro"
+        }
+    }
+}
+
+enum HomePageMode: String, CaseIterable, Codable, Identifiable {
+    case novaStart = "nova_start"
+    case customURL = "custom_url"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .novaStart: return "Página de inicio NOVA"
+        case .customURL: return "URL personalizada"
+        }
+    }
+}
+
+struct BrowserTab: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var urlString: String?
+    var isIncognito: Bool
+    var isDesktopMode: Bool
+    var isLoading: Bool
+    var estimatedProgress: Double
+    var canGoBack: Bool
+    var canGoForward: Bool
+    var errorMessage: String?
+    var failedURLString: String?
+    var blockedCount: Int
+    var lastAccessedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        title: String = "Inicio",
+        urlString: String? = nil,
+        isIncognito: Bool = false,
+        isDesktopMode: Bool = false,
+        isLoading: Bool = false,
+        estimatedProgress: Double = 0,
+        canGoBack: Bool = false,
+        canGoForward: Bool = false,
+        errorMessage: String? = nil,
+        failedURLString: String? = nil,
+        blockedCount: Int = 0,
+        lastAccessedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.urlString = urlString
+        self.isIncognito = isIncognito
+        self.isDesktopMode = isDesktopMode
+        self.isLoading = isLoading
+        self.estimatedProgress = estimatedProgress
+        self.canGoBack = canGoBack
+        self.canGoForward = canGoForward
+        self.errorMessage = errorMessage
+        self.failedURLString = failedURLString
+        self.blockedCount = blockedCount
+        self.lastAccessedAt = lastAccessedAt
+    }
+
+    var isStartPage: Bool {
+        urlString == nil || urlString?.isEmpty == true
+    }
+
+    var currentURL: URL? {
+        guard let urlString = urlString, !urlString.isEmpty else { return nil }
+        return URL(string: urlString)
+    }
+
+    var currentHost: String? {
+        currentURL?.host?.lowercased()
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, urlString, isIncognito, isDesktopMode, lastAccessedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        urlString = try container.decodeIfPresent(String.self, forKey: .urlString)
+        isIncognito = try container.decodeIfPresent(Bool.self, forKey: .isIncognito) ?? false
+        isDesktopMode = try container.decodeIfPresent(Bool.self, forKey: .isDesktopMode) ?? false
+        lastAccessedAt = try container.decodeIfPresent(Date.self, forKey: .lastAccessedAt) ?? Date()
+        isLoading = false
+        estimatedProgress = 0
+        canGoBack = false
+        canGoForward = false
+        errorMessage = nil
+        failedURLString = nil
+        blockedCount = 0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(urlString, forKey: .urlString)
+        try container.encode(isIncognito, forKey: .isIncognito)
+        try container.encode(isDesktopMode, forKey: .isDesktopMode)
+        try container.encode(lastAccessedAt, forKey: .lastAccessedAt)
+    }
+}
+
+struct BookmarkItem: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var urlString: String
+    var createdAt: Date
+
+    init(id: UUID = UUID(), title: String, urlString: String, createdAt: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.urlString = urlString
+        self.createdAt = createdAt
+    }
+
+    var host: String {
+        URL(string: urlString)?.host ?? urlString
+    }
+}
+
+struct HistoryEntry: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var urlString: String
+    var visitedAt: Date
+
+    init(id: UUID = UUID(), title: String, urlString: String, visitedAt: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.urlString = urlString
+        self.visitedAt = visitedAt
+    }
+
+    var host: String {
+        URL(string: urlString)?.host ?? urlString
+    }
+}
+
+struct QuickShortcut: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var urlString: String
+    var colorHex: String
+
+    init(id: UUID = UUID(), title: String, urlString: String, colorHex: String = "#2563EB") {
+        self.id = id
+        self.title = title
+        self.urlString = urlString
+        self.colorHex = colorHex
+    }
+
+    var host: String {
+        URL(string: urlString)?.host?.replacingOccurrences(of: "www.", with: "") ?? urlString
+    }
+
+    var monogram: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let first = trimmed.first {
+            return String(first).uppercased()
+        }
+        return "N"
+    }
+
+    static let defaults: [QuickShortcut] = [
+        QuickShortcut(title: "YouTube", urlString: "https://www.youtube.com", colorHex: "#DC2626"),
+        QuickShortcut(title: "Wikipedia", urlString: "https://es.wikipedia.org", colorHex: "#475569"),
+        QuickShortcut(title: "GitHub", urlString: "https://github.com", colorHex: "#1E293B"),
+        QuickShortcut(title: "DuckDuckGo", urlString: "https://duckduckgo.com", colorHex: "#EA580C"),
+        QuickShortcut(title: "RAE", urlString: "https://dle.rae.es", colorHex: "#0F766E"),
+        QuickShortcut(title: "Vimeo", urlString: "https://vimeo.com", colorHex: "#0284C7")
+    ]
+}
+
+struct BrowserSettings: Codable, Equatable {
+    var searchEngine: SearchEngine
+    var appearanceMode: AppearanceMode
+    var homePageMode: HomePageMode
+    var customHomeURLString: String
+    var defaultDesktopMode: Bool
+    var restoreTabsOnLaunch: Bool
+    var adBlockerEnabled: Bool
+    var whitelistedDomains: [String]
+    var totalBlockedLifetime: Int
+
+    static let `default` = BrowserSettings(
+        searchEngine: .google,
+        appearanceMode: .automatic,
+        homePageMode: .novaStart,
+        customHomeURLString: "https://www.google.com",
+        defaultDesktopMode: false,
+        restoreTabsOnLaunch: true,
+        adBlockerEnabled: true,
+        whitelistedDomains: [],
+        totalBlockedLifetime: 0
+    )
+}
+
+struct PersistedTabsSnapshot: Codable {
+    var tabs: [BrowserTab]
+    var activeTabID: UUID?
+}

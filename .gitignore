@@ -1,0 +1,10 @@
+# Xcode / macOS / CodeMagic build artifacts
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+.DS_Store

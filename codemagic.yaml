@@ -1,0 +1,72 @@
+workflows:
+  ios-nova-browser-signed:
+    name: NOVA Browser iPadOS (Signed IPA)
+    max_build_duration: 45
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.novabrowser.ipad
+      vars:
+        XCODE_PROJECT: "NOVABrowser.xcodeproj"
+        XCODE_SCHEME: "NOVABrowser"
+      xcode: 15.2
+    scripts:
+      - name: Run unit tests on iPad Simulator
+        script: |
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "platform=iOS Simulator,name=iPad Air (5th generation),OS=latest" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build IPA for iPadOS
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  ios-nova-browser-unsigned:
+    name: NOVA Browser iPadOS (Unsigned IPA / CI Check)
+    max_build_duration: 45
+    instance_type: mac_mini_m1
+    environment:
+      vars:
+        XCODE_PROJECT: "NOVABrowser.xcodeproj"
+        XCODE_SCHEME: "NOVABrowser"
+      xcode: 15.2
+    scripts:
+      - name: Run unit tests on iPad Simulator
+        script: |
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "platform=iOS Simulator,name=iPad Air (5th generation),OS=latest" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Build release app without code signing
+        script: |
+          xcodebuild clean build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Package unsigned IPA
+        script: |
+          mkdir -p build/ios/ipa Payload
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/NOVABrowser.app Payload/
+          zip -r build/ios/ipa/NOVABrowser-unsigned.ipa Payload
+          rm -rf Payload
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
