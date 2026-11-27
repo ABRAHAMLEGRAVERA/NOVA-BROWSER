@@ -1,40 +1,6 @@
 workflows:
-  ios-nova-browser-signed:
-    name: NOVA Browser iPadOS (Signed IPA)
-    max_build_duration: 45
-    instance_type: mac_mini_m1
-    integrations:
-      app_store_connect: codemagic
-    environment:
-      ios_signing:
-        distribution_type: ad_hoc
-        bundle_identifier: com.novabrowser.ipad
-      vars:
-        XCODE_PROJECT: "NOVABrowser.xcodeproj"
-        XCODE_SCHEME: "NOVABrowser"
-      xcode: 15.2
-    scripts:
-      - name: Run unit tests on iPad Simulator
-        script: |
-          xcodebuild test \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -destination "platform=iOS Simulator,name=iPad Air (5th generation),OS=latest" \
-            CODE_SIGNING_ALLOWED=NO
-      - name: Set up code signing settings on Xcode project
-        script: |
-          xcode-project use-profiles
-      - name: Build IPA for iPadOS
-        script: |
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME"
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-
   ios-nova-browser-unsigned:
-    name: NOVA Browser iPadOS (Unsigned IPA / CI Check)
+    name: NOVA Browser iPadOS (Unsigned IPA)
     max_build_duration: 45
     instance_type: mac_mini_m1
     environment:
@@ -43,13 +9,23 @@ workflows:
         XCODE_SCHEME: "NOVABrowser"
       xcode: 15.2
     scripts:
-      - name: Run unit tests on iPad Simulator
+      - name: Run unit tests on available iPad Simulator
         script: |
-          xcodebuild test \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -destination "platform=iOS Simulator,name=iPad Air (5th generation),OS=latest" \
-            CODE_SIGNING_ALLOWED=NO
+          IPAD_SIM_ID=$(xcrun simctl list devices available | grep -m1 "iPad" | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          echo "Using iPad Simulator ID: $IPAD_SIM_ID"
+          if [ -n "$IPAD_SIM_ID" ]; then
+            xcodebuild test \
+              -project "$XCODE_PROJECT" \
+              -scheme "$XCODE_SCHEME" \
+              -destination "platform=iOS Simulator,id=$IPAD_SIM_ID" \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            xcodebuild build-for-testing \
+              -project "$XCODE_PROJECT" \
+              -scheme "$XCODE_SCHEME" \
+              -sdk iphonesimulator \
+              CODE_SIGNING_ALLOWED=NO
+          fi
       - name: Build release app without code signing
         script: |
           xcodebuild clean build \
@@ -65,8 +41,35 @@ workflows:
         script: |
           mkdir -p build/ios/ipa Payload
           cp -R build/DerivedData/Build/Products/Release-iphoneos/NOVABrowser.app Payload/
-          zip -r build/ios/ipa/NOVABrowser-unsigned.ipa Payload
+          zip -qry build/ios/ipa/NOVABrowser-unsigned.ipa Payload
           rm -rf Payload
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  ios-nova-browser-signed:
+    name: NOVA Browser iPadOS (Signed IPA - Requires Apple Profile)
+    max_build_duration: 45
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.novabrowser.ipad
+      vars:
+        XCODE_PROJECT: "NOVABrowser.xcodeproj"
+        XCODE_SCHEME: "NOVABrowser"
+      xcode: 15.2
+    scripts:
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build signed IPA for iPadOS
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
