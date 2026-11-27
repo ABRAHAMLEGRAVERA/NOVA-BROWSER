@@ -48,47 +48,45 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         invalidateObservers()
         let currentTabID = self.tabID
 
-        titleObservation = webView.observe(\.title, options: [.new]) { [weak self] view, _ in
-            let title = view.title
+        titleObservation = webView.observe(\.title, options: [.new]) { [weak self] _, change in
+            let title = change.newValue ?? nil
             Task { @MainActor in
                 self?.viewModel?.handleWebViewTitleChange(tabID: currentTabID, title: title)
             }
         }
 
-        urlObservation = webView.observe(\.url, options: [.new]) { [weak self] view, _ in
-            let url = view.url
+        urlObservation = webView.observe(\.url, options: [.new]) { [weak self] _, change in
+            let url = change.newValue ?? nil
             Task { @MainActor in
                 self?.viewModel?.handleWebViewURLChange(tabID: currentTabID, url: url)
             }
         }
 
-        progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] view, _ in
-            let progress = view.estimatedProgress
+        progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, change in
+            let progress = change.newValue ?? 0
             Task { @MainActor in
                 self?.viewModel?.handleWebViewProgress(tabID: currentTabID, progress: progress)
             }
         }
 
-        loadingObservation = webView.observe(\.isLoading, options: [.new]) { [weak self] view, _ in
-            let isLoading = view.isLoading
+        loadingObservation = webView.observe(\.isLoading, options: [.new]) { [weak self] _, change in
+            let isLoading = change.newValue ?? false
             Task { @MainActor in
                 self?.viewModel?.handleWebViewLoading(tabID: currentTabID, isLoading: isLoading)
             }
         }
 
-        canGoBackObservation = webView.observe(\.canGoBack, options: [.new]) { [weak self] view, _ in
-            let canBack = view.canGoBack
-            let canFwd = view.canGoForward
+        canGoBackObservation = webView.observe(\.canGoBack, options: [.new]) { [weak self] view, change in
+            let canBack = change.newValue ?? false
             Task { @MainActor in
-                self?.viewModel?.handleWebViewHistoryFlags(tabID: currentTabID, canGoBack: canBack, canGoForward: canFwd)
+                self?.viewModel?.handleWebViewHistoryFlags(tabID: currentTabID, canGoBack: canBack, canGoForward: view.canGoForward)
             }
         }
 
-        canGoForwardObservation = webView.observe(\.canGoForward, options: [.new]) { [weak self] view, _ in
-            let canBack = view.canGoBack
-            let canFwd = view.canGoForward
+        canGoForwardObservation = webView.observe(\.canGoForward, options: [.new]) { [weak self] view, change in
+            let canFwd = change.newValue ?? false
             Task { @MainActor in
-                self?.viewModel?.handleWebViewHistoryFlags(tabID: currentTabID, canGoBack: canBack, canGoForward: canFwd)
+                self?.viewModel?.handleWebViewHistoryFlags(tabID: currentTabID, canGoBack: view.canGoBack, canGoForward: canFwd)
             }
         }
     }
