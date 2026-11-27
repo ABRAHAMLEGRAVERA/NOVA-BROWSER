@@ -9,9 +9,26 @@ final class NOVABrowserTests: XCTestCase {
         let explicitURL = URLResolver.resolveInput("http://192.168.1.1:8080/status", searchEngine: .google)
         XCTAssertEqual(explicitURL?.absoluteString, "http://192.168.1.1:8080/status")
 
-        let searchURL = URLResolver.resolveInput("swift wkwebview ipad", searchEngine: .duckDuckGo)
-        XCTAssertEqual(searchURL?.host, "duckduckgo.com")
-        XCTAssertTrue(searchURL?.query?.contains("swift%20wkwebview%20ipad") == true)
+        let googleSearchURL = URLResolver.resolveInput("swift wkwebview ipad", searchEngine: .google)
+        XCTAssertEqual(googleSearchURL?.host, "www.google.com")
+        XCTAssertTrue(googleSearchURL?.query?.contains("swift%20wkwebview%20ipad") == true)
+
+        let braveSearchURL = URLResolver.resolveInput("swift wkwebview ipad", searchEngine: .brave)
+        XCTAssertEqual(braveSearchURL?.host, "search.brave.com")
+        XCTAssertTrue(braveSearchURL?.query?.contains("swift%20wkwebview%20ipad") == true)
+    }
+
+    func testBrowserSettingsDecodesLegacySearchEngineSafely() throws {
+        let legacyJSON = """
+        {
+          "searchEngine": "duckduckgo",
+          "appearanceMode": "dark"
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(BrowserSettings.self, from: legacyJSON)
+        XCTAssertEqual(decoded.searchEngine, .google)
+        XCTAssertEqual(decoded.appearanceMode, .dark)
+        XCTAssertTrue(decoded.videoPerformanceMode)
     }
 
     func testFilterListParserProtectsYouTubeAndParsesEasyList() throws {

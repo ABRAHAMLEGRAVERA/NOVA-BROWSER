@@ -2,12 +2,13 @@ import SwiftUI
 
 struct TopToolbarView: View {
     @ObservedObject var viewModel: BrowserViewModel
+    @ObservedObject var downloadManager: DownloadManager
     let palette: NovaPalette
     let isCompactWidth: Bool
     @FocusState.Binding var isAddressFocused: Bool
 
     var body: some View {
-        HStack(spacing: isCompactWidth ? 6 : 10) {
+        HStack(spacing: isCompactWidth ? 5 : 8) {
             // Left navigation controls
             HStack(spacing: 2) {
                 ToolbarIconButton(
@@ -87,7 +88,7 @@ struct TopToolbarView: View {
                         .foregroundColor(url.scheme == "https" ? palette.secondaryText : palette.shieldPaused)
                 }
 
-                TextField("Buscar en \(viewModel.settings.searchEngine.displayName) o escribir URL", text: $viewModel.addressBarText)
+                TextField("Buscar en \(viewModel.settings.searchEngine.shortName) o escribir URL", text: $viewModel.addressBarText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(palette.primaryText)
@@ -132,7 +133,7 @@ struct TopToolbarView: View {
             }
             .padding(.horizontal, 10)
             .frame(height: 36)
-            .frame(maxWidth: 600)
+            .frame(maxWidth: 560)
             .background(palette.addressBarBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -144,6 +145,18 @@ struct TopToolbarView: View {
             // Right utility controls
             HStack(spacing: 2) {
                 if !viewModel.activeTab.isStartPage {
+                    if viewModel.activeTab.hasVideoOnPage {
+                        ToolbarIconButton(
+                            systemName: "arrow.up.left.and.arrow.down.right",
+                            accessibilityLabel: "Vídeo en pantalla completa",
+                            isEnabled: true,
+                            tintOverride: palette.accent,
+                            palette: palette
+                        ) {
+                            viewModel.triggerNativeVideoFullscreen()
+                        }
+                    }
+
                     ToolbarIconButton(
                         systemName: viewModel.isCurrentPageBookmarked ? "star.fill" : "star",
                         accessibilityLabel: viewModel.isCurrentPageBookmarked ? "Quitar favorito" : "Añadir a favoritos",
@@ -172,9 +185,50 @@ struct TopToolbarView: View {
                         isEnabled: viewModel.activeTab.currentURL != nil,
                         palette: palette
                     ) {
+                        viewModel.shareFileURL = nil
                         viewModel.showShareSheet = true
                     }
                 }
+
+                // Force Dark Web Pages toggle
+                ToolbarIconButton(
+                    systemName: viewModel.settings.forceDarkWebPages ? "moon.fill" : "moon",
+                    accessibilityLabel: "Forzar modo oscuro en páginas web",
+                    isEnabled: true,
+                    tintOverride: viewModel.settings.forceDarkWebPages ? palette.accent : nil,
+                    palette: palette
+                ) {
+                    viewModel.toggleForceDarkWebPages()
+                }
+
+                // Downloads button with active badge
+                Button {
+                    viewModel.showDownloads = true
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: viewModel.activeTab.detectedVideoURLString != nil ? "arrow.down.circle.fill" : "arrow.down.circle")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(
+                                (downloadManager.activeDownloadsCount > 0 || viewModel.activeTab.detectedVideoURLString != nil)
+                                    ? palette.accent
+                                    : palette.primaryText.opacity(0.88)
+                            )
+                            .frame(width: 34, height: 34)
+
+                        if downloadManager.activeDownloadsCount > 0 {
+                            Text("\(downloadManager.activeDownloadsCount)")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(palette.accent)
+                                .clipShape(Capsule())
+                                .offset(x: 2, y: 2)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Descargas")
 
                 ToolbarIconButton(
                     systemName: "plus",
@@ -213,7 +267,7 @@ struct TopToolbarView: View {
                 }
             }
         }
-        .padding(.horizontal, isCompactWidth ? 8 : 14)
+        .padding(.horizontal, isCompactWidth ? 8 : 12)
         .frame(height: 52)
         .background(palette.chromeBackground)
     }

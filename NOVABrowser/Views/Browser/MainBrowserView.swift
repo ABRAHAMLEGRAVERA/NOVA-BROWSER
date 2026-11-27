@@ -28,6 +28,7 @@ struct MainBrowserView: View {
             VStack(spacing: 0) {
                 TopToolbarView(
                     viewModel: viewModel,
+                    downloadManager: viewModel.downloadManager,
                     palette: palette,
                     isCompactWidth: isCompact,
                     isAddressFocused: $isAddressFocused
@@ -46,7 +47,6 @@ struct MainBrowserView: View {
                                 width: max(24, geo.size.width * CGFloat(viewModel.activeTab.estimatedProgress)),
                                 height: 2
                             )
-                            .animation(.easeOut(duration: 0.15), value: viewModel.activeTab.estimatedProgress)
                     }
                 }
 
@@ -127,6 +127,10 @@ struct MainBrowserView: View {
             LibrarySheetView(viewModel: viewModel)
                 .preferredColorScheme(viewModel.resolvedColorScheme)
         }
+        .sheet(isPresented: $viewModel.showDownloads) {
+            DownloadsSheetView(viewModel: viewModel, downloadManager: viewModel.downloadManager)
+                .preferredColorScheme(viewModel.resolvedColorScheme)
+        }
         .sheet(isPresented: $viewModel.showSettings) {
             SettingsView(viewModel: viewModel)
                 .preferredColorScheme(viewModel.resolvedColorScheme)
@@ -138,7 +142,9 @@ struct MainBrowserView: View {
             .preferredColorScheme(viewModel.resolvedColorScheme)
         }
         .sheet(isPresented: $viewModel.showShareSheet) {
-            if let url = viewModel.activeTab.currentURL {
+            if let fileURL = viewModel.shareFileURL {
+                ShareSheetView(activityItems: [fileURL])
+            } else if let url = viewModel.activeTab.currentURL {
                 ShareSheetView(activityItems: [url])
             }
         }

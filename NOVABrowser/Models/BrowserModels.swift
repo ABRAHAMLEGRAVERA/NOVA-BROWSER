@@ -2,21 +2,28 @@ import Foundation
 
 enum SearchEngine: String, CaseIterable, Codable, Identifiable {
     case google = "google"
-    case duckDuckGo = "duckduckgo"
-    case bing = "bing"
     case brave = "brave"
-    case startpage = "startpage"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .google: return "Google"
-        case .duckDuckGo: return "DuckDuckGo"
-        case .bing: return "Bing"
-        case .brave: return "Brave Search"
-        case .startpage: return "Startpage"
+        case .brave: return "Brave Search (search.brave.com)"
         }
+    }
+
+    var shortName: String {
+        switch self {
+        case .google: return "Google"
+        case .brave: return "Brave"
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = (try? container.decode(String.self)) ?? "google"
+        self = SearchEngine(rawValue: raw) ?? .google
     }
 
     func searchURL(for query: String) -> URL? {
@@ -26,14 +33,8 @@ enum SearchEngine: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .google:
             return URL(string: "https://www.google.com/search?q=\(encoded)")
-        case .duckDuckGo:
-            return URL(string: "https://duckduckgo.com/?q=\(encoded)")
-        case .bing:
-            return URL(string: "https://www.bing.com/search?q=\(encoded)")
         case .brave:
             return URL(string: "https://search.brave.com/search?q=\(encoded)")
-        case .startpage:
-            return URL(string: "https://www.startpage.com/do/search?q=\(encoded)")
         }
     }
 }
@@ -81,6 +82,8 @@ struct BrowserTab: Identifiable, Codable, Equatable {
     var errorMessage: String?
     var failedURLString: String?
     var blockedCount: Int
+    var hasVideoOnPage: Bool
+    var detectedVideoURLString: String?
     var lastAccessedAt: Date
 
     init(
@@ -96,6 +99,8 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         errorMessage: String? = nil,
         failedURLString: String? = nil,
         blockedCount: Int = 0,
+        hasVideoOnPage: Bool = false,
+        detectedVideoURLString: String? = nil,
         lastAccessedAt: Date = Date()
     ) {
         self.id = id
@@ -110,6 +115,8 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         self.errorMessage = errorMessage
         self.failedURLString = failedURLString
         self.blockedCount = blockedCount
+        self.hasVideoOnPage = hasVideoOnPage
+        self.detectedVideoURLString = detectedVideoURLString
         self.lastAccessedAt = lastAccessedAt
     }
 
@@ -145,6 +152,8 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         errorMessage = nil
         failedURLString = nil
         blockedCount = 0
+        hasVideoOnPage = false
+        detectedVideoURLString = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -221,11 +230,11 @@ struct QuickShortcut: Identifiable, Codable, Equatable {
 
     static let defaults: [QuickShortcut] = [
         QuickShortcut(title: "YouTube", urlString: "https://www.youtube.com", colorHex: "#DC2626"),
+        QuickShortcut(title: "Google", urlString: "https://www.google.com", colorHex: "#2563EB"),
+        QuickShortcut(title: "Brave", urlString: "https://search.brave.com", colorHex: "#EA580C"),
         QuickShortcut(title: "Wikipedia", urlString: "https://es.wikipedia.org", colorHex: "#475569"),
-        QuickShortcut(title: "GitHub", urlString: "https://github.com", colorHex: "#1E293B"),
-        QuickShortcut(title: "DuckDuckGo", urlString: "https://duckduckgo.com", colorHex: "#EA580C"),
-        QuickShortcut(title: "RAE", urlString: "https://dle.rae.es", colorHex: "#0F766E"),
-        QuickShortcut(title: "Vimeo", urlString: "https://vimeo.com", colorHex: "#0284C7")
+        QuickShortcut(title: "Vimeo", urlString: "https://vimeo.com", colorHex: "#0284C7"),
+        QuickShortcut(title: "GitHub", urlString: "https://github.com", colorHex: "#1E293B")
     ]
 }
 
@@ -237,8 +246,57 @@ struct BrowserSettings: Codable, Equatable {
     var defaultDesktopMode: Bool
     var restoreTabsOnLaunch: Bool
     var adBlockerEnabled: Bool
+    var forceDarkWebPages: Bool
+    var videoPerformanceMode: Bool
     var whitelistedDomains: [String]
     var totalBlockedLifetime: Int
+
+    enum CodingKeys: String, CodingKey {
+        case searchEngine, appearanceMode, homePageMode, customHomeURLString,
+             defaultDesktopMode, restoreTabsOnLaunch, adBlockerEnabled,
+             forceDarkWebPages, videoPerformanceMode, whitelistedDomains, totalBlockedLifetime
+    }
+
+    init(
+        searchEngine: SearchEngine,
+        appearanceMode: AppearanceMode,
+        homePageMode: HomePageMode,
+        customHomeURLString: String,
+        defaultDesktopMode: Bool,
+        restoreTabsOnLaunch: Bool,
+        adBlockerEnabled: Bool,
+        forceDarkWebPages: Bool,
+        videoPerformanceMode: Bool,
+        whitelistedDomains: [String],
+        totalBlockedLifetime: Int
+    ) {
+        self.searchEngine = searchEngine
+        self.appearanceMode = appearanceMode
+        self.homePageMode = homePageMode
+        self.customHomeURLString = customHomeURLString
+        self.defaultDesktopMode = defaultDesktopMode
+        self.restoreTabsOnLaunch = restoreTabsOnLaunch
+        self.adBlockerEnabled = adBlockerEnabled
+        self.forceDarkWebPages = forceDarkWebPages
+        self.videoPerformanceMode = videoPerformanceMode
+        self.whitelistedDomains = whitelistedDomains
+        self.totalBlockedLifetime = totalBlockedLifetime
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        searchEngine = (try? c.decode(SearchEngine.self, forKey: .searchEngine)) ?? .google
+        appearanceMode = (try? c.decode(AppearanceMode.self, forKey: .appearanceMode)) ?? .automatic
+        homePageMode = (try? c.decode(HomePageMode.self, forKey: .homePageMode)) ?? .novaStart
+        customHomeURLString = (try? c.decode(String.self, forKey: .customHomeURLString)) ?? "https://www.google.com"
+        defaultDesktopMode = (try? c.decode(Bool.self, forKey: .defaultDesktopMode)) ?? false
+        restoreTabsOnLaunch = (try? c.decode(Bool.self, forKey: .restoreTabsOnLaunch)) ?? true
+        adBlockerEnabled = (try? c.decode(Bool.self, forKey: .adBlockerEnabled)) ?? true
+        forceDarkWebPages = (try? c.decode(Bool.self, forKey: .forceDarkWebPages)) ?? false
+        videoPerformanceMode = (try? c.decode(Bool.self, forKey: .videoPerformanceMode)) ?? true
+        whitelistedDomains = (try? c.decode([String].self, forKey: .whitelistedDomains)) ?? []
+        totalBlockedLifetime = (try? c.decode(Int.self, forKey: .totalBlockedLifetime)) ?? 0
+    }
 
     static let `default` = BrowserSettings(
         searchEngine: .google,
@@ -248,6 +306,8 @@ struct BrowserSettings: Codable, Equatable {
         defaultDesktopMode: false,
         restoreTabsOnLaunch: true,
         adBlockerEnabled: true,
+        forceDarkWebPages: false,
+        videoPerformanceMode: true,
         whitelistedDomains: [],
         totalBlockedLifetime: 0
     )

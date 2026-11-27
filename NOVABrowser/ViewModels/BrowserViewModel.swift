@@ -29,12 +29,15 @@ final class BrowserViewModel: ObservableObject {
     @Published var showSettings: Bool = false
     @Published var showAdBlockPopover: Bool = false
     @Published var showShareSheet: Bool = false
+    @Published var shareFileURL: URL? = nil
+    @Published var showDownloads: Bool = false
     @Published var showShortcutEditor: Bool = false
     @Published var editingShortcut: QuickShortcut? = nil
     @Published var toastMessage: String? = nil
 
     let adBlocker: AdBlockerEngine
     let webViewPool: WebViewPool
+    let downloadManager: DownloadManager
     private let store: PersistenceStore
     private var cancellables = Set<AnyCancellable>()
     private var toastDismissWorkItem: DispatchWorkItem?
@@ -43,6 +46,7 @@ final class BrowserViewModel: ObservableObject {
         self.store = store
         self.adBlocker = AdBlockerEngine()
         self.webViewPool = WebViewPool()
+        self.downloadManager = DownloadManager()
 
         let loadedSettings = store.loadSettings()
         self.settings = loadedSettings
@@ -134,7 +138,9 @@ final class BrowserViewModel: ObservableObject {
             for: tab,
             adBlockerRuleList: adBlocker.compiledRuleList,
             adBlockerEnabled: settings.adBlockerEnabled,
-            isWhitelisted: isWhitelisted
+            isWhitelisted: isWhitelisted,
+            forceDarkWebPages: settings.forceDarkWebPages,
+            videoPerformanceMode: settings.videoPerformanceMode
         ) { [weak self] tabID in
             guard let self = self else {
                 fatalError("BrowserViewModel deallocated unexpectedly")
@@ -240,6 +246,8 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].canGoForward = false
         tabs[idx].errorMessage = nil
         tabs[idx].failedURLString = nil
+        tabs[idx].hasVideoOnPage = false
+        tabs[idx].detectedVideoURLString = nil
         addressBarText = ""
         persistTabsSnapshot()
     }
@@ -263,6 +271,56 @@ final class BrowserViewModel: ObservableObject {
 
     func requestAddressBarFocus() {
         focusAddressBarTrigger += 1
+    }
+
+    func toggleForceDarkWebPages() {
+        settings.forceDarkWebPages.toggle()
+        store.saveSettings(settings)
+        webViewPool.applyForceDarkMode(settings.forceDarkWebPages)
+        showToast(settings.forceDarkWebPages ? "Modo oscuro web activado" : "Modo oscuro web desactivado")
+    }
+
+    func setForceDarkWebPages(_ enabled: Bool) {
+        settings.forceDarkWebPages = enabled
+        store.saveSettings(settings)
+        webViewPool.applyForceDarkMode(enabled)
+    }
+
+    func triggerNativeVideoFullscreen() {
+        guard let runtime = webViewPool.runtime(for: activeTabID) else {
+            showToast("Abre un vídeo primero")
+            return
+        }
+        runtime.webView.evaluateJavaScript("window.__novaEnterVideoFullscreen ? window.__novaEnterVideoFullscreen() : false;") { [weak self] result, _ in
+            Task { @MainActor in
+                let ok = (result as? Bool) ?? false
+                if !ok {
+                    self?.showToast("No se detectó ningún vídeo reproducible en esta página")
+                }
+            }
+        }
+    }
+
+    func downloadDetectedVideo() {
+        guard let raw = activeTab.detectedVideoURLString, let url = URL(string: raw) else {
+            showToast("Este vídeo usa streaming protegido o fragmentado")
+            return
+        }
+        let suggested = "\(URLResolver.normalizeDomainString(activeTab.currentHost ?? "video"))-\(Int(Date().timeIntervalSince1970)).mp4"
+        downloadManager.startDirectDownload(url: url, suggestedFilename: suggested)
+        showDownloads = true
+        showToast("Descarga iniciada")
+    }
+
+    func handleStartedWKDownload(_ download: WKDownload, url: URL?) {
+        downloadManager.attachWKDownload(download, initialURL: url)
+        showToast("Descargando archivo...")
+    }
+
+    func handleVideoDetection(tabID: UUID, hasVideo: Bool, directURLString: String?) {
+        guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        tabs[idx].hasVideoOnPage = hasVideo
+        tabs[idx].detectedVideoURLString = directURLString
     }
 
     // MARK: - Tabs
@@ -437,6 +495,8 @@ final class BrowserViewModel: ObservableObject {
         guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         tabs[idx].errorMessage = nil
         tabs[idx].failedURLString = nil
+        tabs[idx].hasVideoOnPage = false
+        tabs[idx].detectedVideoURLString = nil
         tabs[idx].isLoading = true
     }
 

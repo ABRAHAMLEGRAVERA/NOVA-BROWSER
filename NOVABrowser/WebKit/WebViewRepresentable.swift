@@ -7,17 +7,20 @@ final class WebViewHostContainer: UIView {
 
     func display(webView: WKWebView) {
         if currentWebView === webView { return }
-        currentWebView?.removeFromSuperview()
-        currentWebView = webView
+        UIView.performWithoutAnimation {
+            currentWebView?.removeFromSuperview()
+            currentWebView = webView
 
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(webView)
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: topAnchor),
-            webView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            webView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
+            webView.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(webView)
+            NSLayoutConstraint.activate([
+                webView.topAnchor.constraint(equalTo: topAnchor),
+                webView.bottomAnchor.constraint(equalTo: bottomAnchor),
+                webView.leadingAnchor.constraint(equalTo: leadingAnchor),
+                webView.trailingAnchor.constraint(equalTo: trailingAnchor)
+            ])
+            layoutIfNeeded()
+        }
     }
 }
 
@@ -112,15 +115,24 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
-        guard message.name == "novaTracker",
-              let body = message.body as? [String: Any],
-              let count = body["count"] as? Int,
-              count > 0 else {
+        let currentTabID = self.tabID
+        if message.name == "novaTracker",
+           let body = message.body as? [String: Any],
+           let count = body["count"] as? Int,
+           count > 0 {
+            Task { @MainActor in
+                self.viewModel?.recordBlockedItems(tabID: currentTabID, count: count)
+            }
             return
         }
-        let currentTabID = self.tabID
-        Task { @MainActor in
-            self.viewModel?.recordBlockedItems(tabID: currentTabID, count: count)
+
+        if message.name == "novaVideo",
+           let body = message.body as? [String: Any] {
+            let hasVideo = (body["hasVideo"] as? Bool) ?? false
+            let directURL = body["directURL"] as? String
+            Task { @MainActor in
+                self.viewModel?.handleVideoDetection(tabID: currentTabID, hasVideo: hasVideo, directURLString: directURL)
+            }
         }
     }
 
@@ -135,7 +147,6 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
             return
         }
 
-        // Handle external schemes (mailto:, tel:, etc.) safely
         if !URLResolver.isWebScheme(url) {
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
@@ -155,7 +166,11 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
             return
         }
 
-        // If targetFrame is nil (e.g. target="_blank"), open in a new tab inside NOVA Browser
+        if navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
+
         if navigationAction.targetFrame == nil {
             Task { @MainActor in
                 self.viewModel?.openLinkInNewTab(url: url, inheritIncognitoFrom: currentTabID)
@@ -165,6 +180,41 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         }
 
         decisionHandler(.allow)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        if let http = navigationResponse.response as? HTTPURLResponse {
+            let disposition = (http.allHeaderFields["Content-Disposition"] as? String)?.lowercased() ?? ""
+            if disposition.contains("attachment") {
+                decisionHandler(.download)
+                return
+            }
+        }
+
+        if !navigationResponse.canShowMIMEType {
+            decisionHandler(.download)
+            return
+        }
+
+        decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        let url = navigationAction.request.url
+        Task { @MainActor in
+            self.viewModel?.handleStartedWKDownload(download, url: url)
+        }
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        let url = navigationResponse.response.url
+        Task { @MainActor in
+            self.viewModel?.handleStartedWKDownload(download, url: url)
+        }
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -192,17 +242,14 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        // Recover gracefully if WebKit process crashes on low RAM on iPad Air 2
         webView.reload()
     }
 
     private func handleLoadError(_ error: Error, failingURL: URL?) {
         let nsError = error as NSError
-        // Ignore expected cancellations (user stopped loading or fast redirect)
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
             return
         }
-        // Ignore WebKit frame load interrupted by policy change (e.g. opening new tab or download)
         if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 {
             return
         }
@@ -246,9 +293,9 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping () -> Void
     ) {
-        presentAlert(title: frame.request.url?.host ?? "NOVA Browser", message: message, style: .alert, completion: {
+        presentAlert(title: frame.request.url?.host ?? "NOVA Browser", message: message, style: .alert) {
             completionHandler()
-        })
+        }
     }
 
     func webView(

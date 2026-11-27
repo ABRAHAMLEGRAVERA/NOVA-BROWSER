@@ -102,9 +102,12 @@ struct SettingsView: View {
                     }
                 }
 
-                // 4. Apariencia
-                Section(header: Text("Apariencia")) {
-                    Picker("Tema visual", selection: Binding(
+                // 4. Apariencia y modo oscuro web
+                Section(
+                    header: Text("Apariencia"),
+                    footer: Text("El modo oscuro web oscurece páginas claras (y activa el tema oscuro de YouTube) manteniendo imágenes y vídeos con sus colores reales.")
+                ) {
+                    Picker("Tema de la aplicación", selection: Binding(
                         get: { viewModel.settings.appearanceMode },
                         set: { mode in
                             viewModel.updateSettings { $0.appearanceMode = mode }
@@ -114,10 +117,20 @@ struct SettingsView: View {
                             Text(mode.displayName).tag(mode)
                         }
                     }
+
+                    Toggle("Forzar modo oscuro en páginas web", isOn: Binding(
+                        get: { viewModel.settings.forceDarkWebPages },
+                        set: { enabled in
+                            viewModel.setForceDarkWebPages(enabled)
+                        }
+                    ))
                 }
 
-                // 5. Navegación y página de inicio
-                Section(header: Text("Navegación y página de inicio")) {
+                // 5. Navegación, vídeo y página de inicio
+                Section(
+                    header: Text("Navegación y vídeo"),
+                    footer: Text("La optimización de vídeo desactiva desenfoques pesados y transiciones al rotar la pantalla para acelerar YouTube en el iPad Air 2.")
+                ) {
                     Picker("Motor de búsqueda", selection: Binding(
                         get: { viewModel.settings.searchEngine },
                         set: { engine in
@@ -128,6 +141,13 @@ struct SettingsView: View {
                             Text(engine.displayName).tag(engine)
                         }
                     }
+
+                    Toggle("Optimización de vídeo y YouTube", isOn: Binding(
+                        get: { viewModel.settings.videoPerformanceMode },
+                        set: { value in
+                            viewModel.updateSettings { $0.videoPerformanceMode = value }
+                        }
+                    ))
 
                     Picker("Página de inicio", selection: Binding(
                         get: { viewModel.settings.homePageMode },
