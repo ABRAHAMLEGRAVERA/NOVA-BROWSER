@@ -137,7 +137,7 @@ struct SettingsView: View {
                             viewModel.updateSettings { $0.searchEngine = engine }
                         }
                     )) {
-                        ForEach(SearchEngine.allCases) { engine in
+                        ForEach(SearchEngine.allCases.filter { $0 == .google }) { engine in
                             Text(engine.displayName).tag(engine)
                         }
                     }

@@ -158,6 +158,20 @@ struct TopToolbarView: View {
                     }
 
                     ToolbarIconButton(
+                        systemName: "translate",
+                        accessibilityLabel: "Traducir página al español",
+                        isEnabled: viewModel.activeTab.currentURL != nil,
+                        tintOverride: palette.accent,
+                        palette: palette
+                    ) {
+                        if let pageURL = viewModel.activeTab.currentURL,
+                           let encodedURL = pageURL.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                           let translateURL = URL(string: "https://translate.google.com/translate?sl=auto&tl=es&u=\(encodedURL)") {
+                            viewModel.createNewTab(url: translateURL, isIncognito: viewModel.activeTab.isIncognito)
+                        }
+                    }
+
+                    ToolbarIconButton(
                         systemName: viewModel.isCurrentPageBookmarked ? "star.fill" : "star",
                         accessibilityLabel: viewModel.isCurrentPageBookmarked ? "Quitar favorito" : "Añadir a favoritos",
                         isEnabled: true,

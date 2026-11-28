@@ -104,7 +104,9 @@ final class WebViewPool {
         config.allowsInlineMediaPlayback = true
         config.allowsPictureInPictureMediaPlayback = true
         config.allowsAirPlayForMediaPlayback = true
+        // Preserve native inline/full-screen playback while avoiding unnecessary autoplay restrictions.
         config.mediaTypesRequiringUserActionForPlayback = []
+        config.suppressesIncrementalRendering = false
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
         if #available(iOS 15.4, *) {
             config.preferences.isElementFullscreenEnabled = true
@@ -138,6 +140,8 @@ final class WebViewPool {
         }
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsLinkPreview = true
+        // Keep the legacy iPad renderer responsive and avoid extra transparent compositing layers.
+        webView.scrollView.delaysContentTouches = false
         webView.scrollView.contentInsetAdjustmentBehavior = .automatic
         // Opaque rendering eliminates full-screen alpha-blending overhead on iPad Air 2 A8X GPU
         webView.isOpaque = true

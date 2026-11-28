@@ -235,7 +235,6 @@ struct QuickShortcut: Identifiable, Codable, Equatable {
     static let defaults: [QuickShortcut] = [
         QuickShortcut(title: "YouTube", urlString: "https://www.youtube.com", colorHex: "#DC2626"),
         QuickShortcut(title: "Google", urlString: "https://www.google.com", colorHex: "#2563EB"),
-        QuickShortcut(title: "Brave", urlString: "https://search.brave.com", colorHex: "#EA580C"),
         QuickShortcut(title: "Wikipedia", urlString: "https://es.wikipedia.org", colorHex: "#475569"),
         QuickShortcut(title: "Vimeo", urlString: "https://vimeo.com", colorHex: "#0284C7"),
         QuickShortcut(title: "GitHub", urlString: "https://github.com", colorHex: "#1E293B")
