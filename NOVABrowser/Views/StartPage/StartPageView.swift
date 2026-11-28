@@ -9,49 +9,49 @@ struct StartPageView: View {
     @State private var isEditingShortcuts: Bool = false
 
     private let columns = [
-        GridItem(.adaptive(minimum: 112, maximum: 136), spacing: 14)
+        GridItem(.adaptive(minimum: 94, maximum: 132), spacing: 14)
     ]
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 28) {
-                // Header Emblem
+            VStack(spacing: 26) {
+                // Minimal Safari-inspired Header Emblem
                 VStack(spacing: 10) {
                     if isIncognito {
                         ZStack {
                             Circle()
                                 .fill(palette.incognitoAccent.opacity(0.16))
-                                .frame(width: 60, height: 60)
+                                .frame(width: 58, height: 58)
                             Image(systemName: "eye.slash.fill")
-                                .font(.system(size: 26, weight: .semibold))
+                                .font(.system(size: 24, weight: .semibold))
                                 .foregroundColor(palette.incognitoAccent)
                         }
                         Text("Navegación privada")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundColor(palette.primaryText)
-                        Text("Esta pestaña no guarda historial ni cookies al cerrarse.")
+                        Text("Esta pestaña no guarda historial, cookies ni contraseñas al cerrarse.")
                             .font(.system(size: 13))
                             .foregroundColor(palette.secondaryText)
                             .multilineTextAlignment(.center)
                     } else {
-                        NovaEmblemView(size: 56, accent: palette.accent)
+                        NovaEmblemView(size: 52, accent: palette.accent)
                         Text("NOVA")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
                             .tracking(2.5)
                             .foregroundColor(palette.primaryText)
                     }
                 }
-                .padding(.top, 36)
+                .padding(.top, 32)
 
-                // Start Page Search Bar
+                // Start Page Capsule Search Bar
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(palette.secondaryText)
 
-                    TextField("Buscar en \(viewModel.settings.searchEngine.displayName) o escribir dirección", text: $searchQuery)
+                    TextField("Buscar en Google o escribir dirección", text: $searchQuery)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 16))
+                        .font(.system(size: 15))
                         .foregroundColor(palette.primaryText)
                         .keyboardType(.webSearch)
                         .autocapitalization(.none)
@@ -80,20 +80,20 @@ struct StartPageView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .frame(height: 48)
-                .frame(maxWidth: 560)
+                .frame(height: 44)
+                .frame(maxWidth: 540)
                 .background(palette.elevatedSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(palette.border, lineWidth: 1)
+                    Capsule()
+                        .stroke(palette.border, lineWidth: 0.6)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(Capsule())
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
 
                 // Quick Shortcuts Section
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Accesos rápidos")
+                        Text("Favoritos frecuentes")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(palette.primaryText)
 
@@ -145,13 +145,13 @@ struct StartPageView: View {
                         }
                     }
                 }
-                .frame(maxWidth: 720)
+                .frame(maxWidth: 700)
 
-                // Favorites Preview Section
+                // Bookmarks Preview Section
                 if !viewModel.bookmarks.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text("Favoritos")
+                            Text("Marcadores")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(palette.primaryText)
 
@@ -195,7 +195,7 @@ struct StartPageView: View {
                                         .background(palette.elevatedSurface)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .stroke(palette.border, lineWidth: 1)
+                                                .stroke(palette.border, lineWidth: 0.6)
                                         )
                                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                     }
@@ -204,34 +204,53 @@ struct StartPageView: View {
                             }
                         }
                     }
-                    .frame(maxWidth: 720)
+                    .frame(maxWidth: 700)
                 }
 
-                // Minimal Privacy Summary
-                HStack(spacing: 8) {
-                    Image(systemName: viewModel.settings.adBlockerEnabled ? "checkmark.shield.fill" : "shield.slash")
-                        .font(.system(size: 13))
-                        .foregroundColor(viewModel.settings.adBlockerEnabled ? palette.shieldActive : palette.secondaryText)
+                // Minimal Safari-style Privacy & Passwords Report Pills
+                HStack(spacing: 10) {
+                    HStack(spacing: 7) {
+                        Image(systemName: viewModel.settings.adBlockerEnabled ? "checkmark.shield.fill" : "shield.slash")
+                            .font(.system(size: 12))
+                            .foregroundColor(viewModel.settings.adBlockerEnabled ? palette.shieldActive : palette.secondaryText)
 
-                    Text(
-                        viewModel.settings.adBlockerEnabled
-                            ? "Escudo NOVA activo · \(viewModel.settings.totalBlockedLifetime) elementos bloqueados"
-                            : "Escudo NOVA desactivado"
-                    )
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(palette.secondaryText)
+                        Text(
+                            viewModel.settings.adBlockerEnabled
+                                ? "Escudo activo · \(viewModel.settings.totalBlockedLifetime) bloqueados"
+                                : "Escudo desactivado"
+                        )
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(palette.secondaryText)
+                        .lineLimit(1)
+                    }
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 8)
+                    .background(palette.elevatedSurface)
+                    .overlay(Capsule().stroke(palette.border, lineWidth: 0.6))
+                    .clipShape(Capsule())
+
+                    Button {
+                        viewModel.showPasswords = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(palette.accent)
+                            Text("Contraseñas (\(viewModel.passwordStore.credentials.count))")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(palette.primaryText)
+                        }
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 8)
+                        .background(palette.elevatedSurface)
+                        .overlay(Capsule().stroke(palette.border, lineWidth: 0.6))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(palette.elevatedSurface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(palette.border, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .padding(.bottom, 32)
+                .padding(.bottom, 30)
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
             .frame(maxWidth: .infinity)
         }
         .background(palette.canvasBackground)
@@ -249,14 +268,14 @@ private struct ShortcutTileView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Button(action: onTap) {
-                VStack(spacing: 8) {
+                VStack(spacing: 7) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Color(hex: shortcut.colorHex).opacity(0.16))
                             .frame(width: 52, height: 52)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color(hex: shortcut.colorHex).opacity(0.32), lineWidth: 1)
+                                    .stroke(Color(hex: shortcut.colorHex).opacity(0.32), lineWidth: 0.8)
                             )
 
                         Text(shortcut.monogram)
@@ -276,13 +295,13 @@ private struct ShortcutTileView: View {
                             .lineLimit(1)
                     }
                 }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 8)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 6)
                 .frame(maxWidth: .infinity)
                 .background(palette.elevatedSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(palette.border, lineWidth: 1)
+                        .stroke(palette.border, lineWidth: 0.6)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }

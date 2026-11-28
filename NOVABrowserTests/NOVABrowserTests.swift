@@ -12,16 +12,12 @@ final class NOVABrowserTests: XCTestCase {
         let googleSearchURL = URLResolver.resolveInput("swift wkwebview ipad", searchEngine: .google)
         XCTAssertEqual(googleSearchURL?.host, "www.google.com")
         XCTAssertTrue(googleSearchURL?.query?.contains("swift%20wkwebview%20ipad") == true)
-
-        let braveSearchURL = URLResolver.resolveInput("swift wkwebview ipad", searchEngine: .brave)
-        XCTAssertEqual(braveSearchURL?.host, "search.brave.com")
-        XCTAssertTrue(braveSearchURL?.query?.contains("swift%20wkwebview%20ipad") == true)
     }
 
     func testBrowserSettingsDecodesLegacySearchEngineSafely() throws {
         let legacyJSON = """
         {
-          "searchEngine": "duckduckgo",
+          "searchEngine": "brave",
           "appearanceMode": "dark"
         }
         """.data(using: .utf8)!
@@ -29,6 +25,8 @@ final class NOVABrowserTests: XCTestCase {
         XCTAssertEqual(decoded.searchEngine, .google)
         XCTAssertEqual(decoded.appearanceMode, .dark)
         XCTAssertTrue(decoded.videoPerformanceMode)
+        XCTAssertTrue(decoded.autoSavePasswords)
+        XCTAssertEqual(decoded.defaultTranslationLanguage, .spanish)
     }
 
     func testFilterListParserProtectsYouTubeAndParsesEasyList() throws {
@@ -45,9 +43,7 @@ final class NOVABrowserTests: XCTestCase {
         let parsed = FilterListParser.parseEasyListToWebKitRules(sampleEasyList)
         XCTAssertTrue(parsed.adDomains.contains("doubleclick.net"))
         XCTAssertTrue(parsed.adDomains.contains("popads.net"))
-        // Protected video domain must never be added to blocking rules
         XCTAssertFalse(parsed.adDomains.contains("googlevideo.com"))
-        // Unsupported :has() CSS selector must be skipped so WebKit compilation never fails
         XCTAssertFalse(parsed.rules.contains { $0.action.selector?.contains(":has(") == true })
     }
 
@@ -111,5 +107,29 @@ final class NOVABrowserTests: XCTestCase {
         XCTAssertEqual(decoded.segments?.count, 2)
         XCTAssertTrue(decoded.canResume)
         XCTAssertTrue(decoded.isVideo)
+    }
+
+    func testPasswordCredentialNormalizesDomain() {
+        let cred = PasswordCredential(
+            domain: "https://www.github.com/login",
+            username: "abraham",
+            password: "secret"
+        )
+        XCTAssertEqual(cred.domain, "github.com")
+        XCTAssertEqual(cred.username, "abraham")
+    }
+
+    func testPageTranslatorBatchingAndTaggedParsing() {
+        let nodes = [
+            TranslationTextNode(id: 0, text: "Welcome to NOVA"),
+            TranslationTextNode(id: 1, text: "Fast browsing for iPad")
+        ]
+        let batches = PageTranslatorService.makeBatches(from: nodes, maxCharsPerBatch: 1400, maxItemsPerBatch: 20)
+        XCTAssertEqual(batches.count, 1)
+
+        let simulatedResponse = "[NVX_0] Bienvenido a NOVA\n[ NVX_1 ] Navegación rápida para iPad"
+        let parsed = PageTranslatorService.parseTaggedTranslations(simulatedResponse, expectedIDs: [0, 1])
+        XCTAssertEqual(parsed[0], "Bienvenido a NOVA")
+        XCTAssertEqual(parsed[1], "Navegación rápida para iPad")
     }
 }

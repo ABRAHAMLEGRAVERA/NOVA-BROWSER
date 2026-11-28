@@ -196,8 +196,7 @@ enum FilterListParser {
     static func isProtectedVideoDomain(_ domain: String) -> Bool {
         let protected = [
             "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com",
-            "ggpht.com", "vimeo.com", "vimeocdn.com", "jwpcdn.com", "twitch.tv",
-            "brave.com"
+            "ggpht.com", "vimeo.com", "vimeocdn.com", "jwpcdn.com", "twitch.tv"
         ]
         return protected.contains { domain == $0 || domain.hasSuffix(".\($0)") }
     }

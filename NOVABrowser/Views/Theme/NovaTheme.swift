@@ -16,47 +16,47 @@ struct NovaPalette {
     static func resolve(colorScheme: ColorScheme, isIncognito: Bool) -> NovaPalette {
         if isIncognito {
             return NovaPalette(
-                chromeBackground: Color(hex: "#15121F"),
-                canvasBackground: Color(hex: "#0E0C15"),
-                elevatedSurface: Color(hex: "#1E1A2D"),
-                addressBarBackground: Color(hex: "#262138"),
-                border: Color(hex: "#332C4A"),
-                primaryText: Color(hex: "#F3F2F7"),
-                secondaryText: Color(hex: "#A59EC0"),
-                accent: Color(hex: "#8B5CF6"),
-                shieldActive: Color(hex: "#34D399"),
-                shieldPaused: Color(hex: "#FBBF24"),
-                incognitoAccent: Color(hex: "#A78BFA")
+                chromeBackground: Color(hex: "#1C1B22"),
+                canvasBackground: Color(hex: "#100F14"),
+                elevatedSurface: Color(hex: "#2B2836"),
+                addressBarBackground: Color(hex: "#322E40"),
+                border: Color(hex: "#423D54"),
+                primaryText: Color(hex: "#F5F5F7"),
+                secondaryText: Color(hex: "#AEAEB8"),
+                accent: Color(hex: "#BF5AF2"),
+                shieldActive: Color(hex: "#30D158"),
+                shieldPaused: Color(hex: "#FFD60A"),
+                incognitoAccent: Color(hex: "#BF5AF2")
             )
         }
 
         if colorScheme == .dark {
             return NovaPalette(
-                chromeBackground: Color(hex: "#10131A"),
-                canvasBackground: Color(hex: "#0A0C10"),
-                elevatedSurface: Color(hex: "#181C26"),
-                addressBarBackground: Color(hex: "#1E2330"),
-                border: Color(hex: "#282F40"),
-                primaryText: Color(hex: "#F3F4F6"),
-                secondaryText: Color(hex: "#94A3B8"),
-                accent: Color(hex: "#4F8BFF"),
-                shieldActive: Color(hex: "#34D399"),
-                shieldPaused: Color(hex: "#FBBF24"),
-                incognitoAccent: Color(hex: "#8B5CF6")
+                chromeBackground: Color(hex: "#1C1C1E"),
+                canvasBackground: Color(hex: "#111113"),
+                elevatedSurface: Color(hex: "#2C2C2E"),
+                addressBarBackground: Color(hex: "#2C2C2F"),
+                border: Color(hex: "#38383A"),
+                primaryText: Color(hex: "#FFFFFF"),
+                secondaryText: Color(hex: "#98989F"),
+                accent: Color(hex: "#0A84FF"),
+                shieldActive: Color(hex: "#30D158"),
+                shieldPaused: Color(hex: "#FFD60A"),
+                incognitoAccent: Color(hex: "#BF5AF2")
             )
         } else {
             return NovaPalette(
-                chromeBackground: Color(hex: "#F3F5F8"),
-                canvasBackground: Color(hex: "#F8FAFC"),
+                chromeBackground: Color(hex: "#F2F2F7"),
+                canvasBackground: Color(hex: "#FFFFFF"),
                 elevatedSurface: Color(hex: "#FFFFFF"),
-                addressBarBackground: Color(hex: "#E8ECF2"),
-                border: Color(hex: "#DCE2EC"),
-                primaryText: Color(hex: "#111827"),
-                secondaryText: Color(hex: "#64748B"),
-                accent: Color(hex: "#2563EB"),
-                shieldActive: Color(hex: "#059669"),
-                shieldPaused: Color(hex: "#D97706"),
-                incognitoAccent: Color(hex: "#7C3AED")
+                addressBarBackground: Color(hex: "#E3E3E8"),
+                border: Color(hex: "#D1D1D6"),
+                primaryText: Color(hex: "#1C1C1E"),
+                secondaryText: Color(hex: "#6E6E73"),
+                accent: Color(hex: "#007AFF"),
+                shieldActive: Color(hex: "#34C759"),
+                shieldPaused: Color(hex: "#FF9F0A"),
+                incognitoAccent: Color(hex: "#AF52DE")
             )
         }
     }
@@ -74,7 +74,7 @@ extension Color {
         case 8:
             (a, r, g, b) = (int >> 24, (int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
         default:
-            (a, r, g, b) = (255, 37, 99, 235)
+            (a, r, g, b) = (255, 0, 122, 255)
         }
         self.init(
             .sRGB,
@@ -119,7 +119,7 @@ struct NovaEmblemView: View {
             RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: "#0F172A"), Color(hex: "#1E1B4B")],
+                        colors: [Color(hex: "#1C1C1E"), Color(hex: "#0A84FF").opacity(0.65)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

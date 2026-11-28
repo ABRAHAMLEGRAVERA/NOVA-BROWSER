@@ -79,12 +79,17 @@ final class AdBlockQuickFilter {
 
     private static func matchesBlockedDomainSet(_ host: String, domainSet: Set<String>) -> Bool {
         let clean = URLResolver.normalizeDomainString(host)
-        if domainSet.contains(clean) { return true }
-        // Match an explicitly blocked parent domain, but never use a guessed public suffix.
-        // This prevents unrelated hosts sharing the same last two labels from being blocked.
-        return domainSet.contains { blocked in
-            clean == blocked || clean.hasSuffix(".\(blocked)")
+        if domainSet.contains(clean) {
+            return true
         }
+        let parts = clean.split(separator: ".")
+        if parts.count >= 2 {
+            let root = "\(parts[parts.count - 2]).\(parts[parts.count - 1])"
+            if domainSet.contains(root) {
+                return true
+            }
+        }
+        return false
     }
 }
 

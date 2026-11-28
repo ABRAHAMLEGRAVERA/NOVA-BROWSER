@@ -23,21 +23,21 @@ struct MainBrowserView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let isCompact = geo.size.width < 700
+            let isCompact = geo.size.width < 680
 
             VStack(spacing: 0) {
                 TopToolbarView(
                     viewModel: viewModel,
                     downloadManager: viewModel.downloadManager,
                     palette: palette,
-                    isCompactWidth: isCompact,
+                    viewportWidth: geo.size.width,
                     isAddressFocused: $isAddressFocused
                 )
 
                 // Discrete 2pt loading progress bar
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(palette.border.opacity(0.45))
+                        .fill(palette.border.opacity(0.4))
                         .frame(height: 2)
 
                     if viewModel.activeTab.isLoading {
@@ -50,7 +50,11 @@ struct MainBrowserView: View {
                     }
                 }
 
-                TabStripView(viewModel: viewModel, palette: palette)
+                TabStripView(
+                    viewModel: viewModel,
+                    palette: palette,
+                    isCompactWidth: isCompact
+                )
 
                 // Main Viewport
                 ZStack(alignment: .top) {
@@ -78,83 +82,17 @@ struct MainBrowserView: View {
                         )
                     }
 
-                    if viewModel.activeTab.braveWasmFallbackQuery != nil && !viewModel.activeTab.isStartPage {
-                        VStack {
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "exclamationmark.shield.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.orange)
+                    // Active Translation Status Pill
+                    if (viewModel.activeTab.isTranslating || viewModel.activeTab.isPageTranslated) && !viewModel.activeTab.isStartPage {
+                        translationBanner
+                            .padding(.top, 8)
+                    }
 
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Brave activó verificación WebAssembly 2.0")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(palette.primaryText)
-
-                                    Text("iPadOS 15.8.9 solo admite WebAssembly 1.0 (Apple añadió 2.0 en iOS 16.4), por lo que cuando Brave pide captcha anti-bot queda bloqueado.")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(palette.secondaryText)
-
-                                    HStack(spacing: 8) {
-                                        Button("Buscar en Google") {
-                                            viewModel.fallbackBraveToGoogle()
-                                        }
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(palette.accent)
-                                        .foregroundColor(.white)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                                        Button("DuckDuckGo Lite") {
-                                            viewModel.fallbackBraveToDuckDuckGoLite()
-                                        }
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(palette.secondaryText.opacity(0.16))
-                                        .foregroundColor(palette.primaryText)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                                        if viewModel.activeTab.isIncognito {
-                                            Button("Pestaña normal") {
-                                                viewModel.retryBraveInNormalTab()
-                                            }
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
-                                            .background(palette.secondaryText.opacity(0.16))
-                                            .foregroundColor(palette.primaryText)
-                                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-
-                                Spacer(minLength: 4)
-
-                                Button {
-                                    viewModel.dismissBraveWasmBanner()
-                                } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(palette.secondaryText)
-                                        .padding(6)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(14)
-                            .background(palette.chromeBackground)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(palette.border, lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .shadow(color: Color.black.opacity(0.22), radius: 10, x: 0, y: 4)
+                    // Save Password Prompt Card
+                    if let pending = viewModel.activeTab.pendingCredentialSave, !viewModel.activeTab.isStartPage {
+                        saveCredentialBanner(pending)
                             .padding(.horizontal, 16)
-                            .padding(.top, 10)
-
-                            Spacer()
-                        }
+                            .padding(.top, (viewModel.activeTab.isPageTranslated || viewModel.activeTab.isTranslating) ? 52 : 10)
                     }
 
                     if isAddressFocused {
@@ -177,8 +115,8 @@ struct MainBrowserView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 9)
-                                .background(Color.black.opacity(0.82))
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .background(Color.black.opacity(0.84))
+                                .clipShape(Capsule())
                                 .padding(.bottom, 24)
                         }
                         .transition(.opacity)
@@ -196,6 +134,7 @@ struct MainBrowserView: View {
         .onChange(of: scenePhase) { phase in
             if phase == .background || phase == .inactive {
                 viewModel.persistTabsSnapshot()
+                viewModel.flushCookiesToDisk()
             }
         }
         .sheet(isPresented: $viewModel.showTabSwitcher) {
@@ -204,6 +143,10 @@ struct MainBrowserView: View {
         }
         .sheet(isPresented: $viewModel.showLibrary) {
             LibrarySheetView(viewModel: viewModel)
+                .preferredColorScheme(viewModel.resolvedColorScheme)
+        }
+        .sheet(isPresented: $viewModel.showPasswords) {
+            PasswordsSheetView(viewModel: viewModel, passwordStore: viewModel.passwordStore)
                 .preferredColorScheme(viewModel.resolvedColorScheme)
         }
         .sheet(isPresented: $viewModel.showDownloads) {
@@ -227,6 +170,93 @@ struct MainBrowserView: View {
                 ShareSheetView(activityItems: [url])
             }
         }
+    }
+
+    private var translationBanner: some View {
+        HStack(spacing: 10) {
+            if viewModel.activeTab.isTranslating {
+                ProgressView()
+                    .scaleEffect(0.75)
+                Text("Traduciendo página...")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(palette.primaryText)
+            } else if let langName = viewModel.activeTab.translatedLanguageName {
+                Image(systemName: "character.bubble.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(palette.accent)
+                Text("Traducido a \(langName)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(palette.primaryText)
+                Button("Ver original") {
+                    viewModel.restoreOriginalPage()
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(palette.accent)
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(palette.chromeBackground)
+        .overlay(
+            Capsule()
+                .stroke(palette.border, lineWidth: 0.8)
+        )
+        .clipShape(Capsule())
+        .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 3)
+    }
+
+    private func saveCredentialBanner(_ pending: PendingCredentialSave) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(palette.accent.opacity(0.16))
+                    .frame(width: 34, height: 34)
+                Image(systemName: "key.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(palette.accent)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("¿Guardar contraseña para \(pending.domain)?")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(palette.primaryText)
+                    .lineLimit(1)
+                Text(pending.username)
+                    .font(.system(size: 12))
+                    .foregroundColor(palette.secondaryText)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            Button("Ahora no") {
+                viewModel.dismissPendingCredential()
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(palette.secondaryText)
+            .buttonStyle(.plain)
+
+            Button("Guardar") {
+                viewModel.savePendingCredential()
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(palette.accent)
+            .foregroundColor(.white)
+            .clipShape(Capsule())
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .frame(maxWidth: 520)
+        .background(palette.chromeBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(palette.border, lineWidth: 0.8)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.22), radius: 10, x: 0, y: 4)
     }
 
     private var keyboardShortcutsLayer: some View {

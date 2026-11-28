@@ -27,6 +27,7 @@ final class BrowserViewModel: ObservableObject {
     @Published var showLibrary: Bool = false
     @Published var libraryInitialTab: LibrarySection = .bookmarks
     @Published var showSettings: Bool = false
+    @Published var showPasswords: Bool = false
     @Published var showAdBlockPopover: Bool = false
     @Published var showShareSheet: Bool = false
     @Published var shareFileURL: URL? = nil
@@ -38,6 +39,7 @@ final class BrowserViewModel: ObservableObject {
     let adBlocker: AdBlockerEngine
     let webViewPool: WebViewPool
     let downloadManager: DownloadManager
+    let passwordStore: PasswordStore
     private let store: PersistenceStore
     private var cancellables = Set<AnyCancellable>()
     private var toastDismissWorkItem: DispatchWorkItem?
@@ -47,6 +49,7 @@ final class BrowserViewModel: ObservableObject {
         self.adBlocker = AdBlockerEngine()
         self.webViewPool = WebViewPool()
         self.downloadManager = DownloadManager()
+        self.passwordStore = PasswordStore()
 
         let loadedSettings = store.loadSettings()
         self.settings = loadedSettings
@@ -75,6 +78,7 @@ final class BrowserViewModel: ObservableObject {
             enabled: loadedSettings.adBlockerEnabled,
             whitelistedDomains: loadedSettings.whitelistedDomains
         )
+        PrivacyDataManager.restoreCookiesIntoWebKitStore()
     }
 
     var activeTab: BrowserTab {
@@ -103,6 +107,10 @@ final class BrowserViewModel: ObservableObject {
 
     var isCurrentSiteWhitelisted: Bool {
         adBlocker.isDomainWhitelisted(activeTab.currentHost, whitelistedDomains: settings.whitelistedDomains)
+    }
+
+    var matchingCredentialsForActiveTab: [PasswordCredential] {
+        passwordStore.matchingCredentials(for: activeTab.currentHost)
     }
 
     var resolvedColorScheme: ColorScheme? {
@@ -168,6 +176,10 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].failedURLString = nil
         tabs[idx].isLoading = true
         tabs[idx].estimatedProgress = 0.08
+        tabs[idx].isPageTranslated = false
+        tabs[idx].translatedLanguageName = nil
+        tabs[idx].isTranslating = false
+        tabs[idx].pendingCredentialSave = nil
         tabs[idx].lastAccessedAt = Date()
         if tabs[idx].title == "Inicio" {
             tabs[idx].title = URLResolver.displayTitle(for: url, pageTitle: nil)
@@ -248,7 +260,10 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].failedURLString = nil
         tabs[idx].hasVideoOnPage = false
         tabs[idx].detectedVideoURLString = nil
-        tabs[idx].braveWasmFallbackQuery = nil
+        tabs[idx].isPageTranslated = false
+        tabs[idx].translatedLanguageName = nil
+        tabs[idx].isTranslating = false
+        tabs[idx].pendingCredentialSave = nil
         addressBarText = ""
         persistTabsSnapshot()
     }
@@ -287,6 +302,8 @@ final class BrowserViewModel: ObservableObject {
         webViewPool.applyForceDarkMode(enabled)
     }
 
+    // MARK: - Video Fullscreen, Picture-in-Picture & Downloads
+
     func triggerNativeVideoFullscreen() {
         guard let runtime = webViewPool.runtime(for: activeTabID) else {
             showToast("Abre un vídeo primero")
@@ -297,6 +314,21 @@ final class BrowserViewModel: ObservableObject {
                 let ok = (result as? Bool) ?? false
                 if !ok {
                     self?.showToast("No se detectó ningún vídeo reproducible en esta página")
+                }
+            }
+        }
+    }
+
+    func triggerPictureInPicture() {
+        guard let runtime = webViewPool.runtime(for: activeTabID) else {
+            showToast("Abre un vídeo primero")
+            return
+        }
+        runtime.webView.evaluateJavaScript("window.__novaEnterPictureInPicture ? window.__novaEnterPictureInPicture() : false;") { [weak self] result, _ in
+            Task { @MainActor in
+                let ok = (result as? Bool) ?? false
+                if !ok {
+                    self?.showToast("Reproduce primero el vídeo para abrir la ventana flotante")
                 }
             }
         }
@@ -324,42 +356,139 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].detectedVideoURLString = directURLString
     }
 
-    func handleBraveWasmBlocked(tabID: UUID, query: String?) {
-        guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-        let clean = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        tabs[idx].braveWasmFallbackQuery = clean
-    }
+    // MARK: - Password Manager
 
-    func dismissBraveWasmBanner() {
-        tabs[activeTabIndex].braveWasmFallbackQuery = nil
-    }
+    func handleCredentialPrompt(tabID: UUID, domain: String, username: String, password: String) {
+        guard settings.autoSavePasswords else { return }
+        guard let idx = tabs.firstIndex(where: { $0.id == tabID }), !tabs[idx].isIncognito else { return }
 
-    func fallbackBraveToGoogle() {
-        let query = tabs[activeTabIndex].braveWasmFallbackQuery ?? ""
-        tabs[activeTabIndex].braveWasmFallbackQuery = nil
-        if query.isEmpty, let url = URL(string: "https://www.google.com") {
-            navigate(to: url, in: activeTabID)
-        } else if let url = SearchEngine.google.searchURL(for: query) {
-            navigate(to: url, in: activeTabID)
+        let cleanUser = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedDomain = URLResolver.normalizeDomainString(domain)
+        guard !cleanUser.isEmpty, !password.isEmpty, !normalizedDomain.isEmpty else { return }
+
+        let alreadyIdentical = passwordStore.credentials.contains {
+            URLResolver.normalizeDomainString($0.domain) == normalizedDomain &&
+            $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame &&
+            $0.password == password
+        }
+        if !alreadyIdentical {
+            tabs[idx].pendingCredentialSave = PendingCredentialSave(
+                domain: normalizedDomain,
+                username: cleanUser,
+                password: password
+            )
         }
     }
 
-    func fallbackBraveToDuckDuckGoLite() {
-        let query = tabs[activeTabIndex].braveWasmFallbackQuery ?? ""
-        tabs[activeTabIndex].braveWasmFallbackQuery = nil
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let target = encoded.isEmpty
-            ? "https://lite.duckduckgo.com/lite/"
-            : "https://lite.duckduckgo.com/lite/?q=\(encoded)"
-        if let url = URL(string: target) {
-            navigate(to: url, in: activeTabID)
+    func savePendingCredential() {
+        let idx = activeTabIndex
+        guard let pending = tabs[idx].pendingCredentialSave else { return }
+        passwordStore.saveCredential(domain: pending.domain, username: pending.username, password: pending.password)
+        tabs[idx].pendingCredentialSave = nil
+        showToast("Contraseña guardada para \(pending.domain)")
+    }
+
+    func dismissPendingCredential() {
+        tabs[activeTabIndex].pendingCredentialSave = nil
+    }
+
+    func fillCredential(_ credential: PasswordCredential) {
+        guard let runtime = webViewPool.runtime(for: activeTabID) else {
+            showToast("Abre primero la página de inicio de sesión")
+            return
+        }
+        guard let userJSON = encodeJSString(credential.username),
+              let passJSON = encodeJSString(credential.password) else {
+            return
+        }
+        let js = "window.__novaFillCredential ? window.__novaFillCredential(\(userJSON), \(passJSON)) : false;"
+        runtime.webView.evaluateJavaScript(js) { [weak self] result, _ in
+            Task { @MainActor in
+                let ok = (result as? Bool) ?? false
+                self?.showToast(ok ? "Datos autocompletados" : "No se encontró un formulario de acceso en esta página")
+            }
         }
     }
 
-    func retryBraveInNormalTab() {
-        let url = activeTab.currentURL ?? URL(string: "https://search.brave.com")
-        tabs[activeTabIndex].braveWasmFallbackQuery = nil
-        createNewTab(url: url, isIncognito: false, select: true)
+    private func encodeJSString(_ value: String) -> String? {
+        guard let data = try? JSONEncoder().encode(value),
+              let str = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return str
+    }
+
+    // MARK: - Page Translator
+
+    func translateActivePage(to language: TranslationLanguage? = nil) {
+        let target = language ?? settings.defaultTranslationLanguage
+        let tabID = activeTabID
+        guard let idx = tabs.firstIndex(where: { $0.id == tabID }),
+              !tabs[idx].isStartPage,
+              let runtime = webViewPool.runtime(for: tabID) else {
+            showToast("Abre una página web para traducir")
+            return
+        }
+
+        tabs[idx].isTranslating = true
+        runtime.webView.evaluateJavaScript("window.__novaCollectTranslatableNodes ? window.__novaCollectTranslatableNodes() : '[]';") { [weak self] result, _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                guard let jsonStr = result as? String,
+                      let data = jsonStr.data(using: .utf8),
+                      let nodes = try? JSONDecoder().decode([TranslationTextNode].self, from: data),
+                      !nodes.isEmpty else {
+                    if let currentIdx = self.tabs.firstIndex(where: { $0.id == tabID }) {
+                        self.tabs[currentIdx].isTranslating = false
+                    }
+                    self.showToast("No se encontró texto traducible en esta página")
+                    return
+                }
+
+                let translatedMap = await PageTranslatorService.translateNodes(nodes, targetLanguageCode: target.rawValue)
+                guard !translatedMap.isEmpty else {
+                    if let currentIdx = self.tabs.firstIndex(where: { $0.id == tabID }) {
+                        self.tabs[currentIdx].isTranslating = false
+                    }
+                    self.showToast("No se pudo conectar con el traductor")
+                    return
+                }
+
+                var stringKeyed: [String: String] = [:]
+                for (id, val) in translatedMap {
+                    stringKeyed[String(id)] = val
+                }
+                guard let payloadData = try? JSONSerialization.data(withJSONObject: stringKeyed),
+                      let payloadJSON = String(data: payloadData, encoding: .utf8) else {
+                    if let currentIdx = self.tabs.firstIndex(where: { $0.id == tabID }) {
+                        self.tabs[currentIdx].isTranslating = false
+                    }
+                    return
+                }
+
+                self.webViewPool.runtime(for: tabID)?.webView.evaluateJavaScript("window.__novaApplyTranslations ? window.__novaApplyTranslations(\(payloadJSON)) : 0;") { _, _ in
+                    Task { @MainActor in
+                        if let currentIdx = self.tabs.firstIndex(where: { $0.id == tabID }) {
+                            self.tabs[currentIdx].isTranslating = false
+                            self.tabs[currentIdx].isPageTranslated = true
+                            self.tabs[currentIdx].translatedLanguageName = target.displayName
+                        }
+                        self.showToast("Página traducida a \(target.displayName)")
+                    }
+                }
+            }
+        }
+    }
+
+    func restoreOriginalPage() {
+        let tabID = activeTabID
+        webViewPool.runtime(for: tabID)?.webView.evaluateJavaScript("window.__novaRestoreOriginalPage ? window.__novaRestoreOriginalPage() : false;", completionHandler: nil)
+        if let idx = tabs.firstIndex(where: { $0.id == tabID }) {
+            tabs[idx].isPageTranslated = false
+            tabs[idx].translatedLanguageName = nil
+            tabs[idx].isTranslating = false
+        }
+        showToast("Idioma original restaurado")
     }
 
     // MARK: - Tabs
@@ -461,8 +590,6 @@ final class BrowserViewModel: ObservableObject {
     // MARK: - Coordinator Callbacks
 
     func shouldBlockNavigation(url: URL, currentHost: String?, isMainFrame: Bool) -> Bool {
-        // Never block top-level user URL bar loads if the user explicitly typed a site,
-        // but block known ad-redirect & third-party ad subframes.
         if isMainFrame && currentHost == nil {
             return false
         }
@@ -536,7 +663,10 @@ final class BrowserViewModel: ObservableObject {
         tabs[idx].failedURLString = nil
         tabs[idx].hasVideoOnPage = false
         tabs[idx].detectedVideoURLString = nil
-        tabs[idx].braveWasmFallbackQuery = nil
+        tabs[idx].isPageTranslated = false
+        tabs[idx].translatedLanguageName = nil
+        tabs[idx].isTranslating = false
+        tabs[idx].pendingCredentialSave = nil
         tabs[idx].isLoading = true
     }
 
@@ -554,10 +684,10 @@ final class BrowserViewModel: ObservableObject {
             }
             if !tabs[idx].isIncognito {
                 recordHistory(title: tabs[idx].title, urlString: url.absoluteString)
+                flushCookiesToDisk()
             }
         }
 
-        // Re-apply content rules in case the site host changed onto/off a whitelist domain
         if let runtime = webViewPool.runtime(for: tabID) {
             let controller = runtime.webView.configuration.userContentController
             controller.removeAllContentRuleLists()
@@ -652,6 +782,10 @@ final class BrowserViewModel: ObservableObject {
     }
 
     // MARK: - Privacy & Cookies
+
+    func flushCookiesToDisk() {
+        PrivacyDataManager.syncCookiesToPersistentBackup()
+    }
 
     func clearCookies() {
         PrivacyDataManager.clearCookies { [weak self] in

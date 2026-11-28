@@ -138,11 +138,19 @@ final class WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WK
 
         if message.name == "novaPageEvent",
            let body = message.body as? [String: Any],
-           let type = body["type"] as? String,
-           type == "braveWasmBlocked" {
-            let query = body["query"] as? String
-            Task { @MainActor in
-                self.viewModel?.handleBraveWasmBlocked(tabID: currentTabID, query: query)
+           let type = body["type"] as? String {
+            if type == "saveCredentialPrompt",
+               let domain = body["domain"] as? String,
+               let username = body["username"] as? String,
+               let password = body["password"] as? String {
+                Task { @MainActor in
+                    self.viewModel?.handleCredentialPrompt(
+                        tabID: currentTabID,
+                        domain: domain,
+                        username: username,
+                        password: password
+                    )
+                }
             }
         }
     }

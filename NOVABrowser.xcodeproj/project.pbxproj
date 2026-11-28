@@ -13,9 +13,11 @@
 		C8735D801B0428A62A718906 /* URLResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85CCB84FE6B3D9D9B095BB0 /* URLResolver.swift */; };
 		D1779525D24B0B9811556084 /* FilterListParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD6DE44E2A0D50554B061F15 /* FilterListParser.swift */; };
 		F5ADB4772B76EABC1F3F944C /* AdBlockerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7FFA6B5B012EA4039EEE214 /* AdBlockerEngine.swift */; };
+		B1C2D3E4F5A678901234AB02 /* PageTranslatorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A678901234AB01 /* PageTranslatorService.swift */; };
 		86486215D12123B0E2B428CE /* PersistenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0EFBF5EB2E1857E5E03FE9D /* PersistenceStore.swift */; };
 		BB700ADF0307B493FFFD59B2 /* PrivacyDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06CE29C6DECFF6BF517661B9 /* PrivacyDataManager.swift */; };
 		1F8A2C4D6E90B1A3C5D7E8F9 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7B3D5F8A01C2B4D6E8F0A1 /* DownloadManager.swift */; };
+		B1C2D3E4F5A678901234AB04 /* PasswordStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A678901234AB03 /* PasswordStore.swift */; };
 		0B1C8FA7ABD7FF9268D6F151 /* WebViewPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C841D2109242E7E7A082DE /* WebViewPool.swift */; };
 		B49DC7B201F464BD79821621 /* WebViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BE08A5DED25259FEDFA6B5 /* WebViewRepresentable.swift */; };
 		BF52A4A5AF401068E90011E4 /* ShareSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2640B04BFF16968A4D43625 /* ShareSheetView.swift */; };
@@ -31,6 +33,7 @@
 		242DB91D51C71F66BA9A4A37 /* ShortcutEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDCAD697E6394A7751922FA /* ShortcutEditorSheet.swift */; };
 		2A5A8DC05888C714494A64E3 /* TabSwitcherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B392CBF3DAF45BD43C1A45 /* TabSwitcherView.swift */; };
 		6E281A16445F80A08D817DE3 /* LibrarySheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6A3D6DF81B9DF358F4C253 /* LibrarySheetView.swift */; };
+		B1C2D3E4F5A678901234AB06 /* PasswordsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A678901234AB05 /* PasswordsSheetView.swift */; };
 		3D6C4E8A1B23D4C5E7F901B2 /* DownloadsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5D5F9B2C34E5D6F80123C3 /* DownloadsSheetView.swift */; };
 		C96C4A4131EE7F25A92B2773 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8D1BBC29FDCAB4AD601139 /* SettingsView.swift */; };
 		2C559CFAC9ED9559E7B41347 /* NOVABrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD02F63C152CD782D4EFFFF /* NOVABrowserTests.swift */; };
@@ -39,6 +42,7 @@
 		D572A0BEE5917802CFC708FC /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 942D6BD2ADAEEBE2394C6BBA /* UIKit.framework */; };
 		4D21956D5C418E0F9AFDF4FD /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 142EBCBE383285EC3F67817B /* AVFoundation.framework */; };
 		E8C19CE1CA96AD6BD8CE74C2 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1223AD3885C5296BEE0F168F /* CryptoKit.framework */; };
+		B1C2D3E4F5A678901234AB08 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A678901234AB07 /* Security.framework */; };
 		10A4713001890D80477F63A7 /* default_blocklist.json in Resources */ = {isa = PBXBuildFile; fileRef = 503117139766AB1F577D3A74 /* default_blocklist.json */; };
 		AE2967CE94F57F95E0A11CB4 /* ad_domains.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8497C059036BBEA9D05E90A0 /* ad_domains.txt */; };
 		3E727A0BB0297449CD66982B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4416B281744E93835DB4A246 /* Assets.xcassets */; };
@@ -65,9 +69,11 @@
 		B85CCB84FE6B3D9D9B095BB0 /* URLResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = URLResolver.swift; path = NOVABrowser/Core/URLResolver.swift; sourceTree = SOURCE_ROOT; };
 		CD6DE44E2A0D50554B061F15 /* FilterListParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FilterListParser.swift; path = NOVABrowser/Core/FilterListParser.swift; sourceTree = SOURCE_ROOT; };
 		C7FFA6B5B012EA4039EEE214 /* AdBlockerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AdBlockerEngine.swift; path = NOVABrowser/Core/AdBlockerEngine.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3E4F5A678901234AB01 /* PageTranslatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PageTranslatorService.swift; path = NOVABrowser/Core/PageTranslatorService.swift; sourceTree = SOURCE_ROOT; };
 		C0EFBF5EB2E1857E5E03FE9D /* PersistenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PersistenceStore.swift; path = NOVABrowser/Storage/PersistenceStore.swift; sourceTree = SOURCE_ROOT; };
 		06CE29C6DECFF6BF517661B9 /* PrivacyDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PrivacyDataManager.swift; path = NOVABrowser/Storage/PrivacyDataManager.swift; sourceTree = SOURCE_ROOT; };
 		2E7B3D5F8A01C2B4D6E8F0A1 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DownloadManager.swift; path = NOVABrowser/Storage/DownloadManager.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3E4F5A678901234AB03 /* PasswordStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PasswordStore.swift; path = NOVABrowser/Storage/PasswordStore.swift; sourceTree = SOURCE_ROOT; };
 		29C841D2109242E7E7A082DE /* WebViewPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WebViewPool.swift; path = NOVABrowser/WebKit/WebViewPool.swift; sourceTree = SOURCE_ROOT; };
 		A4BE08A5DED25259FEDFA6B5 /* WebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WebViewRepresentable.swift; path = NOVABrowser/WebKit/WebViewRepresentable.swift; sourceTree = SOURCE_ROOT; };
 		B2640B04BFF16968A4D43625 /* ShareSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareSheetView.swift; path = NOVABrowser/WebKit/ShareSheetView.swift; sourceTree = SOURCE_ROOT; };
@@ -83,6 +89,7 @@
 		7CDCAD697E6394A7751922FA /* ShortcutEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShortcutEditorSheet.swift; path = NOVABrowser/Views/StartPage/ShortcutEditorSheet.swift; sourceTree = SOURCE_ROOT; };
 		F8B392CBF3DAF45BD43C1A45 /* TabSwitcherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TabSwitcherView.swift; path = NOVABrowser/Views/Tabs/TabSwitcherView.swift; sourceTree = SOURCE_ROOT; };
 		0B6A3D6DF81B9DF358F4C253 /* LibrarySheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LibrarySheetView.swift; path = NOVABrowser/Views/Library/LibrarySheetView.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3E4F5A678901234AB05 /* PasswordsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PasswordsSheetView.swift; path = NOVABrowser/Views/Library/PasswordsSheetView.swift; sourceTree = SOURCE_ROOT; };
 		4C5D5F9B2C34E5D6F80123C3 /* DownloadsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DownloadsSheetView.swift; path = NOVABrowser/Views/Downloads/DownloadsSheetView.swift; sourceTree = SOURCE_ROOT; };
 		CA8D1BBC29FDCAB4AD601139 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = NOVABrowser/Views/Settings/SettingsView.swift; sourceTree = SOURCE_ROOT; };
 		6CD02F63C152CD782D4EFFFF /* NOVABrowserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NOVABrowserTests.swift; path = NOVABrowserTests/NOVABrowserTests.swift; sourceTree = SOURCE_ROOT; };
@@ -91,6 +98,7 @@
 		942D6BD2ADAEEBE2394C6BBA /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		142EBCBE383285EC3F67817B /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		1223AD3885C5296BEE0F168F /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
+		B1C2D3E4F5A678901234AB07 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		BAE8A8E7F35916FDB437D999 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = NOVABrowser/Info.plist; sourceTree = SOURCE_ROOT; };
 		503117139766AB1F577D3A74 /* default_blocklist.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = default_blocklist.json; path = NOVABrowser/Resources/default_blocklist.json; sourceTree = SOURCE_ROOT; };
 		8497C059036BBEA9D05E90A0 /* ad_domains.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = ad_domains.txt; path = NOVABrowser/Resources/ad_domains.txt; sourceTree = SOURCE_ROOT; };
@@ -108,6 +116,7 @@
 				D572A0BEE5917802CFC708FC /* UIKit.framework in Frameworks */,
 				4D21956D5C418E0F9AFDF4FD /* AVFoundation.framework in Frameworks */,
 				E8C19CE1CA96AD6BD8CE74C2 /* CryptoKit.framework in Frameworks */,
+				B1C2D3E4F5A678901234AB08 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +182,7 @@
 				B85CCB84FE6B3D9D9B095BB0 /* URLResolver.swift */,
 				CD6DE44E2A0D50554B061F15 /* FilterListParser.swift */,
 				C7FFA6B5B012EA4039EEE214 /* AdBlockerEngine.swift */,
+				B1C2D3E4F5A678901234AB01 /* PageTranslatorService.swift */,
 			);
 			name = Core;
 			sourceTree = "<group>";
@@ -183,6 +193,7 @@
 				C0EFBF5EB2E1857E5E03FE9D /* PersistenceStore.swift */,
 				06CE29C6DECFF6BF517661B9 /* PrivacyDataManager.swift */,
 				2E7B3D5F8A01C2B4D6E8F0A1 /* DownloadManager.swift */,
+				B1C2D3E4F5A678901234AB03 /* PasswordStore.swift */,
 			);
 			name = Storage;
 			sourceTree = "<group>";
@@ -261,6 +272,7 @@
 			isa = PBXGroup;
 			children = (
 				0B6A3D6DF81B9DF358F4C253 /* LibrarySheetView.swift */,
+				B1C2D3E4F5A678901234AB05 /* PasswordsSheetView.swift */,
 			);
 			name = Library;
 			sourceTree = "<group>";
@@ -306,6 +318,7 @@
 				942D6BD2ADAEEBE2394C6BBA /* UIKit.framework */,
 				142EBCBE383285EC3F67817B /* AVFoundation.framework */,
 				1223AD3885C5296BEE0F168F /* CryptoKit.framework */,
+				B1C2D3E4F5A678901234AB07 /* Security.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -429,9 +442,11 @@
 				C8735D801B0428A62A718906 /* URLResolver.swift in Sources */,
 				D1779525D24B0B9811556084 /* FilterListParser.swift in Sources */,
 				F5ADB4772B76EABC1F3F944C /* AdBlockerEngine.swift in Sources */,
+				B1C2D3E4F5A678901234AB02 /* PageTranslatorService.swift in Sources */,
 				86486215D12123B0E2B428CE /* PersistenceStore.swift in Sources */,
 				BB700ADF0307B493FFFD59B2 /* PrivacyDataManager.swift in Sources */,
 				1F8A2C4D6E90B1A3C5D7E8F9 /* DownloadManager.swift in Sources */,
+				B1C2D3E4F5A678901234AB04 /* PasswordStore.swift in Sources */,
 				0B1C8FA7ABD7FF9268D6F151 /* WebViewPool.swift in Sources */,
 				B49DC7B201F464BD79821621 /* WebViewRepresentable.swift in Sources */,
 				BF52A4A5AF401068E90011E4 /* ShareSheetView.swift in Sources */,
@@ -447,6 +462,7 @@
 				242DB91D51C71F66BA9A4A37 /* ShortcutEditorSheet.swift in Sources */,
 				2A5A8DC05888C714494A64E3 /* TabSwitcherView.swift in Sources */,
 				6E281A16445F80A08D817DE3 /* LibrarySheetView.swift in Sources */,
+				B1C2D3E4F5A678901234AB06 /* PasswordsSheetView.swift in Sources */,
 				3D6C4E8A1B23D4C5E7F901B2 /* DownloadsSheetView.swift in Sources */,
 				C96C4A4131EE7F25A92B2773 /* SettingsView.swift in Sources */,
 			);

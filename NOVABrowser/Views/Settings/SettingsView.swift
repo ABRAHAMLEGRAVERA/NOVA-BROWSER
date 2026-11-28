@@ -6,6 +6,7 @@ struct SettingsView: View {
 
     @State private var showClearHistoryAlert = false
     @State private var showClearCookiesAlert = false
+    @State private var showClearPasswordsAlert = false
     @State private var showClearAllDataAlert = false
 
     private var appVersionText: String {
@@ -20,7 +21,7 @@ struct SettingsView: View {
                 // 1. Bloqueador de anuncios
                 Section(
                     header: Text("Bloqueador de anuncios y rastreadores"),
-                    footer: Text("Utiliza reglas nativas WKContentRuleList de WebKit para bloquear publicidad y rastreadores sin penalizar la batería ni la memoria del iPad Air 2.")
+                    footer: Text("Utiliza reglas nativas WKContentRuleList de WebKit junto con omisión automática inteligente en reproductores de vídeo.")
                 ) {
                     Toggle("Activar bloqueador inteligente", isOn: Binding(
                         get: { viewModel.settings.adBlockerEnabled },
@@ -72,15 +73,51 @@ struct SettingsView: View {
                     }
                 }
 
-                // 2. Privacidad y datos
+                // 2. Contraseñas y sesiones
+                Section(
+                    header: Text("Contraseñas y sesiones"),
+                    footer: Text("Las contraseñas se cifran en el Llavero de iOS. Las sesiones y cookies normales se conservan al cerrar el navegador.")
+                ) {
+                    Toggle("Guardar contraseñas al iniciar sesión", isOn: Binding(
+                        get: { viewModel.settings.autoSavePasswords },
+                        set: { value in
+                            viewModel.updateSettings { $0.autoSavePasswords = value }
+                        }
+                    ))
+
+                    Button {
+                        presentationMode.wrappedValue.dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            viewModel.showPasswords = true
+                        }
+                    } label: {
+                        HStack {
+                            Text("Administrar contraseñas")
+                            Spacer()
+                            Text("\(viewModel.passwordStore.credentials.count)")
+                                .foregroundColor(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                }
+
+                // 3. Privacidad y datos
                 Section(header: Text("Privacidad y datos de navegación")) {
                     Button("Limpiar historial") {
                         showClearHistoryAlert = true
                     }
                     .foregroundColor(.red)
 
-                    Button("Limpiar cookies") {
+                    Button("Limpiar cookies y sesiones") {
                         showClearCookiesAlert = true
+                    }
+                    .foregroundColor(.red)
+
+                    Button("Borrar contraseñas guardadas") {
+                        showClearPasswordsAlert = true
                     }
                     .foregroundColor(.red)
 
@@ -90,7 +127,7 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 }
 
-                // 3. Favoritos
+                // 4. Favoritos
                 Section(header: Text("Favoritos")) {
                     NavigationLink(destination: BookmarksSettingsManagerView(viewModel: viewModel)) {
                         HStack {
@@ -102,7 +139,7 @@ struct SettingsView: View {
                     }
                 }
 
-                // 4. Apariencia y modo oscuro web
+                // 5. Apariencia y modo oscuro web
                 Section(
                     header: Text("Apariencia"),
                     footer: Text("El modo oscuro web oscurece páginas claras (y activa el tema oscuro de YouTube) manteniendo imágenes y vídeos con sus colores reales.")
@@ -126,19 +163,26 @@ struct SettingsView: View {
                     ))
                 }
 
-                // 5. Navegación, vídeo y página de inicio
+                // 6. Navegación, traductor, vídeo y página de inicio
                 Section(
-                    header: Text("Navegación y vídeo"),
-                    footer: Text("La optimización de vídeo desactiva desenfoques pesados y transiciones al rotar la pantalla para acelerar YouTube en el iPad Air 2.")
+                    header: Text("Navegación, traductor y vídeo"),
+                    footer: Text("La optimización de vídeo acelera YouTube y Shorts en iPad Air 2 y permite ventana flotante (PiP) al cambiar a otras apps como WhatsApp.")
                 ) {
-                    Picker("Motor de búsqueda", selection: Binding(
-                        get: { viewModel.settings.searchEngine },
-                        set: { engine in
-                            viewModel.updateSettings { $0.searchEngine = engine }
+                    HStack {
+                        Text("Motor de búsqueda")
+                        Spacer()
+                        Text("Google")
+                            .foregroundColor(.secondary)
+                    }
+
+                    Picker("Idioma de traducción", selection: Binding(
+                        get: { viewModel.settings.defaultTranslationLanguage },
+                        set: { lang in
+                            viewModel.updateSettings { $0.defaultTranslationLanguage = lang }
                         }
                     )) {
-                        ForEach(SearchEngine.allCases.filter { $0 == .google }) { engine in
-                            Text(engine.displayName).tag(engine)
+                        ForEach(TranslationLanguage.allCases) { lang in
+                            Text(lang.displayName).tag(lang)
                         }
                     }
 
@@ -187,7 +231,7 @@ struct SettingsView: View {
                     ))
                 }
 
-                // 6. Acerca de
+                // 7. Acerca de
                 Section(header: Text("Información de la aplicación")) {
                     HStack {
                         Text("Aplicación")
@@ -239,6 +283,15 @@ struct SettingsView: View {
                 Button("Cancelar", role: .cancel) {}
             } message: {
                 Text("Esto cerrará sesión en los sitios web donde hayas iniciado sesión.")
+            }
+            .alert("¿Borrar contraseñas?", isPresented: $showClearPasswordsAlert) {
+                Button("Borrar todas", role: .destructive) {
+                    viewModel.passwordStore.deleteAllCredentials()
+                    viewModel.showToast("Contraseñas eliminadas")
+                }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Se eliminarán todas las contraseñas guardadas en el Llavero de NOVA.")
             }
             .alert("¿Limpiar todos los datos?", isPresented: $showClearAllDataAlert) {
                 Button("Limpiar todo", role: .destructive) {

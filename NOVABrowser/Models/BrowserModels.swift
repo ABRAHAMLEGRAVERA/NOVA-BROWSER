@@ -2,39 +2,48 @@ import Foundation
 
 enum SearchEngine: String, CaseIterable, Codable, Identifiable {
     case google = "google"
-    case brave = "brave"
 
     var id: String { rawValue }
 
     var displayName: String {
-        switch self {
-        case .google: return "Google"
-        case .brave: return "Brave Search (search.brave.com)"
-        }
+        "Google"
     }
 
     var shortName: String {
-        switch self {
-        case .google: return "Google"
-        case .brave: return "Brave"
-        }
+        "Google"
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let raw = (try? container.decode(String.self)) ?? "google"
-        self = SearchEngine(rawValue: raw) ?? .google
+        _ = try? decoder.singleValueContainer().decode(String.self)
+        self = .google
     }
 
     func searchURL(for query: String) -> URL? {
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             return nil
         }
+        return URL(string: "https://www.google.com/search?q=\(encoded)")
+    }
+}
+
+enum TranslationLanguage: String, CaseIterable, Codable, Identifiable {
+    case spanish = "es"
+    case english = "en"
+    case portuguese = "pt"
+    case french = "fr"
+    case italian = "it"
+    case german = "de"
+
+    var id: String { rawValue }
+
+    var displayName: String {
         switch self {
-        case .google:
-            return URL(string: "https://www.google.com/search?q=\(encoded)")
-        case .brave:
-            return URL(string: "https://search.brave.com/search?q=\(encoded)")
+        case .spanish: return "Español"
+        case .english: return "Inglés"
+        case .portuguese: return "Portugués"
+        case .french: return "Francés"
+        case .italian: return "Italiano"
+        case .german: return "Alemán"
         }
     }
 }
@@ -69,6 +78,12 @@ enum HomePageMode: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+struct PendingCredentialSave: Equatable {
+    let domain: String
+    let username: String
+    let password: String
+}
+
 struct BrowserTab: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
@@ -84,7 +99,10 @@ struct BrowserTab: Identifiable, Codable, Equatable {
     var blockedCount: Int
     var hasVideoOnPage: Bool
     var detectedVideoURLString: String?
-    var braveWasmFallbackQuery: String?
+    var isPageTranslated: Bool
+    var translatedLanguageName: String?
+    var isTranslating: Bool
+    var pendingCredentialSave: PendingCredentialSave?
     var lastAccessedAt: Date
 
     init(
@@ -102,7 +120,10 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         blockedCount: Int = 0,
         hasVideoOnPage: Bool = false,
         detectedVideoURLString: String? = nil,
-        braveWasmFallbackQuery: String? = nil,
+        isPageTranslated: Bool = false,
+        translatedLanguageName: String? = nil,
+        isTranslating: Bool = false,
+        pendingCredentialSave: PendingCredentialSave? = nil,
         lastAccessedAt: Date = Date()
     ) {
         self.id = id
@@ -119,7 +140,10 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         self.blockedCount = blockedCount
         self.hasVideoOnPage = hasVideoOnPage
         self.detectedVideoURLString = detectedVideoURLString
-        self.braveWasmFallbackQuery = braveWasmFallbackQuery
+        self.isPageTranslated = isPageTranslated
+        self.translatedLanguageName = translatedLanguageName
+        self.isTranslating = isTranslating
+        self.pendingCredentialSave = pendingCredentialSave
         self.lastAccessedAt = lastAccessedAt
     }
 
@@ -157,7 +181,10 @@ struct BrowserTab: Identifiable, Codable, Equatable {
         blockedCount = 0
         hasVideoOnPage = false
         detectedVideoURLString = nil
-        braveWasmFallbackQuery = nil
+        isPageTranslated = false
+        translatedLanguageName = nil
+        isTranslating = false
+        pendingCredentialSave = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -237,7 +264,8 @@ struct QuickShortcut: Identifiable, Codable, Equatable {
         QuickShortcut(title: "Google", urlString: "https://www.google.com", colorHex: "#2563EB"),
         QuickShortcut(title: "Wikipedia", urlString: "https://es.wikipedia.org", colorHex: "#475569"),
         QuickShortcut(title: "Vimeo", urlString: "https://vimeo.com", colorHex: "#0284C7"),
-        QuickShortcut(title: "GitHub", urlString: "https://github.com", colorHex: "#1E293B")
+        QuickShortcut(title: "GitHub", urlString: "https://github.com", colorHex: "#1E293B"),
+        QuickShortcut(title: "Traductor", urlString: "https://translate.google.com", colorHex: "#0D9488")
     ]
 }
 
@@ -251,13 +279,16 @@ struct BrowserSettings: Codable, Equatable {
     var adBlockerEnabled: Bool
     var forceDarkWebPages: Bool
     var videoPerformanceMode: Bool
+    var autoSavePasswords: Bool
+    var defaultTranslationLanguage: TranslationLanguage
     var whitelistedDomains: [String]
     var totalBlockedLifetime: Int
 
     enum CodingKeys: String, CodingKey {
         case searchEngine, appearanceMode, homePageMode, customHomeURLString,
              defaultDesktopMode, restoreTabsOnLaunch, adBlockerEnabled,
-             forceDarkWebPages, videoPerformanceMode, whitelistedDomains, totalBlockedLifetime
+             forceDarkWebPages, videoPerformanceMode, autoSavePasswords,
+             defaultTranslationLanguage, whitelistedDomains, totalBlockedLifetime
     }
 
     init(
@@ -270,6 +301,8 @@ struct BrowserSettings: Codable, Equatable {
         adBlockerEnabled: Bool,
         forceDarkWebPages: Bool,
         videoPerformanceMode: Bool,
+        autoSavePasswords: Bool,
+        defaultTranslationLanguage: TranslationLanguage,
         whitelistedDomains: [String],
         totalBlockedLifetime: Int
     ) {
@@ -282,6 +315,8 @@ struct BrowserSettings: Codable, Equatable {
         self.adBlockerEnabled = adBlockerEnabled
         self.forceDarkWebPages = forceDarkWebPages
         self.videoPerformanceMode = videoPerformanceMode
+        self.autoSavePasswords = autoSavePasswords
+        self.defaultTranslationLanguage = defaultTranslationLanguage
         self.whitelistedDomains = whitelistedDomains
         self.totalBlockedLifetime = totalBlockedLifetime
     }
@@ -297,6 +332,8 @@ struct BrowserSettings: Codable, Equatable {
         adBlockerEnabled = (try? c.decode(Bool.self, forKey: .adBlockerEnabled)) ?? true
         forceDarkWebPages = (try? c.decode(Bool.self, forKey: .forceDarkWebPages)) ?? false
         videoPerformanceMode = (try? c.decode(Bool.self, forKey: .videoPerformanceMode)) ?? true
+        autoSavePasswords = (try? c.decode(Bool.self, forKey: .autoSavePasswords)) ?? true
+        defaultTranslationLanguage = (try? c.decode(TranslationLanguage.self, forKey: .defaultTranslationLanguage)) ?? .spanish
         whitelistedDomains = (try? c.decode([String].self, forKey: .whitelistedDomains)) ?? []
         totalBlockedLifetime = (try? c.decode(Int.self, forKey: .totalBlockedLifetime)) ?? 0
     }
@@ -311,6 +348,8 @@ struct BrowserSettings: Codable, Equatable {
         adBlockerEnabled: true,
         forceDarkWebPages: false,
         videoPerformanceMode: true,
+        autoSavePasswords: true,
+        defaultTranslationLanguage: .spanish,
         whitelistedDomains: [],
         totalBlockedLifetime: 0
     )
